@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block baslik %}Teşekkürler{% endblock %}
+{% block icerik %}
+<div class="kap" style="text-align:center;padding-top:3rem">
+  <div style="font-size:64px;margin-bottom:1rem">✅</div>
+  <h1 style="font-size:24px;font-weight:800;margin-bottom:8px">Teşekkürler!</h1>
+  <p style="font-size:16px;color:var(--metin-ik);margin-bottom:2rem;max-width:400px;margin-left:auto;margin-right:auto">
+    <strong>{{ anket.baslik }}</strong> yanıtınız başarıyla kaydedildi. Görüşleriniz için teşekkür ederiz.
+  </p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <a href="/" class="btn btn-ana">Ana Sayfaya Dön</a>
+    <a href="/anket/{{ anket.id }}" class="btn btn-gri">Tekrar Doldur</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block baslik %}Anket Kapalı{% endblock %}
+{% block icerik %}
+<div class="kap" style="text-align:center;padding-top:3rem">
+  <div style="font-size:56px;margin-bottom:1rem">⏰</div>
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:8px">{{ anket.baslik }}</h1>
+  <div class="hata-kutu" style="display:inline-block;margin-bottom:1.5rem">{{ mesaj }}</div>
+  <br>
+  <a href="/" class="btn btn-ana">← Ana Sayfaya Dön</a>
+</div>
+{% endblock %}

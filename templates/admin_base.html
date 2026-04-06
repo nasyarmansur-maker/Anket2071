@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block icerik %}
+<div class="admin-layout">
+  <nav class="admin-sidebar">
+    <a href="/admin/panel"    class="sidebar-link {% if aktif_sayfa=='panel' %}aktif{% endif %}"><span class="sikon">📊</span><span>Genel Bakış</span></a>
+    <a href="/admin/anketler" class="sidebar-link {% if aktif_sayfa=='anketler' %}aktif{% endif %}"><span class="sikon">📋</span><span>Anketler</span></a>
+    <a href="/admin/ayarlar"  class="sidebar-link {% if aktif_sayfa=='ayarlar' %}aktif{% endif %}"><span class="sikon">⚙️</span><span>Ayarlar</span></a>
+    <a href="/admin/cikis"    class="sidebar-link" style="margin-top:auto;color:var(--kirmizi)"><span class="sikon">🚪</span><span>Çıkış</span></a>
+  </nav>
+  <div class="admin-icerik">
+    {% block admin_icerik %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

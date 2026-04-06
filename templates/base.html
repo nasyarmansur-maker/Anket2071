@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr" data-tema="{{ tema }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block baslik %}Okul Anketi{% endblock %} — {{ okul_adi }}</title>
+<link rel="stylesheet" href="/static/css/style.css">
+{% block ekstra_css %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+  <div class="header-ic">
+    <a href="/" class="logo-bolum">
+      {% if amblem %}
+        <img src="{{ amblem }}" class="amblem-img" alt="Amblem">
+      {% else %}
+        <div class="amblem-placeholder">🏫</div>
+      {% endif %}
+      <div>
+        <div class="okul-adi-header">{{ okul_adi }}</div>
+        {% if okul_sehir %}<div class="okul-sehir-header">{{ okul_sehir }}</div>{% endif %}
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="/" class="header-link">Ana Sayfa</a>
+      <a href="/admin" class="header-link">🔐 Yönetici</a>
+    </nav>
+  </div>
+</header>
+<main>{% block icerik %}{% endblock %}</main>
+<script>
+// ── iFrame otomatik yükseklik ──────────────────────────────────────
+// Anket sayfası iFrame içinde açıldığında üst pencereye yüksekliği bildirir.
+// Bu sayede okul sitesindeki iFrame kaydırma çubuğu olmadan tam boyutta görünür.
+(function() {
+  var son = 0;
+  function gonder() {
+    // scrollHeight bazen eksik hesaplıyor; tüm yöntemlerin maksimumunu al
+    var h = Math.max(
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight
+    );
+    // Mobil klavye açıldığında küçülme olmasın diye en büyük değeri tut
+    if (h > son) son = h;
+    window.parent.postMessage({ iframeHeight: son + 80 }, '*');
+  }
+  // Sayfa yüklenince
+  if (document.readyState === 'complete') gonder();
+  else window.addEventListener('load', gonder);
+  // Ekran boyutu değişince (döndürme, klavye)
+  window.addEventListener('resize', function() { son = 0; setTimeout(gonder, 300); });
+  // DOM değişince (form submit, adım geçişi, koşullu sorular)
+  var obs = new MutationObserver(function() { setTimeout(gonder, 100); });
+  obs.observe(document.body, { childList: true, subtree: true, attributes: true });
+  // Güvenlik: 300ms'de bir kontrol et (bazı tarayıcılarda mutation tetiklenmez)
+  setInterval(gonder, 300);
+})();
+</script>
+</body>
+</html>

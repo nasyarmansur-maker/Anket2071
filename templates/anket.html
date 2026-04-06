@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block baslik %}{{ anket.baslik }}{% endblock %}
+{% block ekstra_css %}
+<style>
+.gorunum-sec{display:flex;gap:6px;margin-bottom:1.25rem;background:var(--gri-ac);border-radius:var(--r-lg);padding:5px}
+.gorunum-sec button{flex:1;padding:8px 6px;border:none;background:transparent;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;color:var(--metin-ik);transition:all .15s;white-space:nowrap}
+.gorunum-sec button.aktif{background:var(--yuzey);color:var(--ana);box-shadow:0 1px 4px rgba(0,0,0,.1);font-weight:700}
+.ilerleme-ust{margin-bottom:1.25rem}
+.adim-bilgi{display:flex;justify-content:space-between;font-size:12px;color:var(--metin-ik);margin-bottom:5px}
+.ilerleme-kap{background:var(--gri-ac);border-radius:20px;height:8px;overflow:hidden}
+.ilerleme-dolu{height:100%;background:var(--ana);border-radius:20px;transition:width .4s ease}
+.bolum-adim{display:none}
+.bolum-adim.aktif{display:block;animation:gelis .25s ease}
+@keyframes gelis{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.adim-nav{display:flex;gap:10px;margin-top:1rem}
+.adim-nav .btn{flex:1;padding:13px;font-size:15px;justify-content:center}
+.checkbox-grup{display:flex;flex-direction:column;gap:7px}
+.checkbox-opt{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1.5px solid var(--kenar);border-radius:var(--r);cursor:pointer;font-size:14px;color:var(--metin);transition:all .12s;-webkit-tap-highlight-color:transparent}
+.checkbox-opt:hover{background:var(--ana-ac);border-color:var(--ana)}
+.checkbox-opt.isaretli{background:var(--ana-ac);border-color:var(--ana)}
+.checkbox-opt input[type=checkbox]{accent-color:var(--ana);width:18px;height:18px;cursor:pointer;flex-shrink:0}
+.soru[data-gizli="1"]{display:none!important}
+</style>
+{% endblock %}
+{% block icerik %}
+<div class="kap">
+  <div class="form-baslik">{{ anket.icon }} {{ anket.baslik }}</div>
+  {% if anket.aciklama %}
+  <p style="color:var(--metin-ik);font-size:14px;margin-bottom:1rem">{{ anket.aciklama }}</p>
+  {% endif %}
+
+  {% if gorunum_secim_goster %}
+  <div class="gorunum-sec">
+    <button id="btnAdim" onclick="gorunumDegis('adim')" class="{% if anket_gorunum=='adim' %}aktif{% endif %}">
+      📋 Adım Adım
+    </button>
+    <button id="btnTek" onclick="gorunumDegis('tek')" class="{% if anket_gorunum=='tek' %}aktif{% endif %}">
+      📄 Tek Sayfa
+    </button>
+  </div>
+  {% endif %}
+
+  <div id="ilerlemeBolum" style="display:{% if anket_gorunum=='adim' %}block{% else %}none{% endif %}">
+    <div class="adim-bilgi">
+      <span id="adimYazi">Bölüm 1 / {{ anket.bolumler|length }}</span>
+      <span id="adimYuzde">{{ (1.0 / anket.bolumler|length * 100)|int }}%</span>
+    </div>
+    <div class="ilerleme-kap">
+      <div class="ilerleme-dolu" id="ilerlemeDolu" style="width:{{ (1.0 / anket.bolumler|length * 100)|int }}%"></div>
+    </div>
+  </div>
+
+  <form method="POST" id="anketForm" novalidate>
+
+    {# ── ADIM ADIM MOD ── #}
+    {% for bolum in anket.bolumler %}
+    <div class="bolum-adim {% if loop.first %}aktif{% endif %}"
+         data-adim="{{ loop.index0 }}"
+         style="display:{% if anket_gorunum=='adim' %}{% if loop.first %}block{% else %}none{% endif %}{% else %}none{% endif %}">
+      <div class="bolum">
+        <div class="bolum-baslik">
+          <span class="bolum-no">{{ loop.index }}</span> {{ bolum.baslik }}
+        </div>
+        {% for soru in bolum.sorular %}
+        {% set gizli = soru.kosul_soru_id is not none %}
+        <div class="soru"
+             data-soru-id="{{ soru.id }}"
+             data-kosul-sid="{{ soru.kosul_soru_id or '' }}"
+             data-kosul-deger="{{ soru.kosul_deger or '' }}"
+             data-gizli="{% if gizli %}1{% else %}0{% endif %}">
+          <div class="soru-metin">{{ soru.metin }}{% if soru.zorunlu %}<span class="zorunlu">*</span>{% endif %}</div>
+          {% if soru.tip=="yildiz" %}
+          <div class="yildiz-grup">
+            {% for i in [5,4,3,2,1] %}
+            <input type="radio" name="s_{{ soru.id }}" id="ya{{ soru.id }}_{{ i }}" value="{{ i }}"
+                   {% if soru.zorunlu and not gizli %}required{% endif %} data-zorunlu="{{ soru.zorunlu }}">
+            <label for="ya{{ soru.id }}_{{ i }}">★</label>
+            {% endfor %}
+          </div>
+          {% elif soru.tip=="secim" %}
+          <div class="secim-grup">
+            {% for opt in soru.secenekler %}
+            <label class="secim-opt">
+              <input type="radio" name="s_{{ soru.id }}" value="{{ opt }}"
+                     {% if soru.zorunlu and not gizli %}required{% endif %}
+                     data-zorunlu="{{ soru.zorunlu }}" onchange="kosulKontrol()">
+              {{ opt }}
+            </label>
+            {% endfor %}
+          </div>
+          {% elif soru.tip=="coklu" %}
+          <div class="checkbox-grup">
+            {% for opt in soru.secenekler %}
+            <label class="checkbox-opt">
+              <input type="checkbox" name="s_{{ soru.id }}" value="{{ opt }}" onchange="checkboxStil(this)">
+              {{ opt }}
+            </label>
+            {% endfor %}
+          </div>
+          {% elif soru.tip=="evet_hayir" %}
+          <div class="secim-grup" style="flex-direction:row">
+            {% for opt in ["Evet","Hayır"] %}
+            <label class="secim-opt" style="flex:1;justify-content:center">
+              <input type="radio" name="s_{{ soru.id }}" value="{{ opt }}"
+                     {% if soru.zorunlu and not gizli %}required{% endif %}
+                     data-zorunlu="{{ soru.zorunlu }}" onchange="kosulKontrol()" style="display:none">
+              {{ opt }}
+            </label>
+            {% endfor %}
+          </div>
+          {% elif soru.tip=="sayi" %}
+          <input type="number" name="s_{{ soru.id }}" min="0" placeholder="Sayı giriniz" style="max-width:160px">
+          {% else %}
+          <textarea name="s_{{ soru.id }}" placeholder="Görüşünüzü buraya yazın..."></textarea>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="adim-nav">
+        {% if not loop.first %}<button type="button" class="btn btn-gri" onclick="adimGit(-1)">← Geri</button>{% endif %}
+        {% if loop.last %}
+        <button type="submit" class="btn btn-ana">✓ Anketi Gönder</button>
+        {% else %}
+        <button type="button" class="btn btn-ana" onclick="adimGit(1)">İleri →</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {# ── TEK SAYFA MOD ── #}
+    {% for bolum in anket.bolumler %}
+    <div class="bolum" style="margin-bottom:1rem;display:{% if anket_gorunum=='tek' %}block{% else %}none{% endif %}" data-tek-bolum>
+      <div class="bolum-baslik">
+        <span class="bolum-no">{{ loop.index }}</span> {{ bolum.baslik }}
+      </div>
+      {% for soru in bolum.sorular %}
+      {% set gizli = soru.kosul_soru_id is not none %}
+      <div class="soru"
+           data-soru-id="{{ soru.id }}"
+           data-kosul-sid="{{ soru.kosul_soru_id or '' }}"
+           data-kosul-deger="{{ soru.kosul_deger or '' }}"
+           data-gizli="{% if gizli %}1{% else %}0{% endif %}">
+        <div class="soru-metin">{{ soru.metin }}{% if soru.zorunlu %}<span class="zorunlu">*</span>{% endif %}</div>
+        {% if soru.tip=="yildiz" %}
+        <div class="yildiz-grup">
+          {% for i in [5,4,3,2,1] %}
+          <input type="radio" name="s_{{ soru.id }}" id="yt{{ soru.id }}_{{ i }}" value="{{ i }}"
+                 data-zorunlu="{{ soru.zorunlu }}">
+          <label for="yt{{ soru.id }}_{{ i }}">★</label>
+          {% endfor %}
+        </div>
+        {% elif soru.tip=="secim" %}
+        <div class="secim-grup">
+          {% for opt in soru.secenekler %}
+          <label class="secim-opt">
+            <input type="radio" name="s_{{ soru.id }}" value="{{ opt }}"
+                   data-zorunlu="{{ soru.zorunlu }}" onchange="kosulKontrol()">
+            {{ opt }}
+          </label>
+          {% endfor %}
+        </div>
+        {% elif soru.tip=="coklu" %}
+        <div class="checkbox-grup">
+          {% for opt in soru.secenekler %}
+          <label class="checkbox-opt">
+            <input type="checkbox" name="s_{{ soru.id }}" value="{{ opt }}" onchange="checkboxStil(this)">
+            {{ opt }}
+          </label>
+          {% endfor %}
+        </div>
+        {% elif soru.tip=="evet_hayir" %}
+        <div class="secim-grup" style="flex-direction:row">
+          {% for opt in ["Evet","Hayır"] %}
+          <label class="secim-opt" style="flex:1;justify-content:center">
+            <input type="radio" name="s_{{ soru.id }}" value="{{ opt }}"
+                   data-zorunlu="{{ soru.zorunlu }}" onchange="kosulKontrol()" style="display:none">
+            {{ opt }}
+          </label>
+          {% endfor %}
+        </div>
+        {% elif soru.tip=="sayi" %}
+        <input type="number" name="s_{{ soru.id }}" min="0" placeholder="Sayı giriniz" style="max-width:160px">
+        {% else %}
+        <textarea name="s_{{ soru.id }}" placeholder="Görüşünüzü buraya yazın..."></textarea>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    <div id="tekGonderBtn" style="display:{% if anket_gorunum=='tek' %}block{% else %}none{% endif %};margin-top:.5rem">
+      <button type="submit" class="btn btn-ana btn-tam" style="padding:14px;font-size:16px">✓ Anketi Gönder</button>
+    </div>
+  </form>
+
+  <p style="text-align:center;font-size:12px;color:var(--metin-uc);margin-top:1rem">
+    * ile işaretli alanlar zorunludur. Yanıtlar anonim kaydedilir.
+  </p>
+</div>
+
+<script>
+var mevcutMod = "{{ anket_gorunum }}";
+var mevcutAdim = 0;
+var toplamAdim = {{ anket.bolumler|length }};
+var soruKosullar = {{ sorular_json|safe }};
+
+function gorunumDegis(mod) {
+  mevcutMod = mod;
+  mevcutAdim = 0;
+  var btnA = document.getElementById('btnAdim');
+  var btnT = document.getElementById('btnTek');
+  if(btnA) btnA.classList.toggle('aktif', mod==='adim');
+  if(btnT) btnT.classList.toggle('aktif', mod==='tek');
+  document.getElementById('ilerlemeBolum').style.display = mod==='adim'?'block':'none';
+  document.querySelectorAll('.bolum-adim').forEach(function(el,i){
+    if(mod==='adim'){ el.style.display=i===0?'block':'none'; el.classList.toggle('aktif',i===0); }
+    else { el.style.display='none'; el.classList.remove('aktif'); }
+  });
+  document.querySelectorAll('[data-tek-bolum]').forEach(function(el){
+    el.style.display = mod==='tek'?'block':'none';
+  });
+  document.getElementById('tekGonderBtn').style.display = mod==='tek'?'block':'none';
+  zorunluGuncelle();
+  ilerlemeGuncelle();
+  setTimeout(yukseklikGonder, 100);
+}
+
+function zorunluGuncelle() {
+  document.querySelectorAll('#anketForm input[data-zorunlu="1"], #anketForm textarea[data-zorunlu="1"]').forEach(function(inp){
+    var soru = inp.closest('.soru');
+    if(!soru || soru.dataset.gizli==='1'){ inp.removeAttribute('required'); return; }
+    if(mevcutMod==='tek'){ inp.setAttribute('required',''); return; }
+    var adimDiv = inp.closest('.bolum-adim');
+    if(adimDiv && adimDiv.classList.contains('aktif')) inp.setAttribute('required','');
+    else inp.removeAttribute('required');
+  });
+}
+
+function adimGit(yon) {
+  if(yon > 0) {
+    var adimEl = document.querySelector('.bolum-adim.aktif');
+    var hata = false;
+    adimEl.querySelectorAll('.soru:not([data-gizli="1"]) input[data-zorunlu="1"][type=radio]').forEach(function(inp){
+      if(hata) return;
+      var secildi = adimEl.querySelector('[name="'+inp.name+'"]:checked');
+      if(!secildi){
+        var soruEl = inp.closest('.soru');
+        soruEl.style.outline='2px solid var(--kirmizi)';
+        soruEl.style.borderRadius='var(--r)';
+        soruEl.scrollIntoView({behavior:'smooth',block:'center'});
+        setTimeout(function(){soruEl.style.outline='';},2000);
+        hata = true;
+      }
+    });
+    if(hata) return;
+  }
+  var adimlar = document.querySelectorAll('.bolum-adim');
+  adimlar[mevcutAdim].classList.remove('aktif');
+  adimlar[mevcutAdim].style.display='none';
+  mevcutAdim = Math.max(0, Math.min(toplamAdim-1, mevcutAdim+yon));
+  adimlar[mevcutAdim].classList.add('aktif');
+  adimlar[mevcutAdim].style.display='block';
+  zorunluGuncelle();
+  ilerlemeGuncelle();
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(yukseklikGonder, 350);
+}
+
+function ilerlemeGuncelle() {
+  if(mevcutMod!=='adim') return;
+  var yuzde = Math.round(((mevcutAdim+1)/toplamAdim)*100);
+  document.getElementById('ilerlemeDolu').style.width = yuzde+'%';
+  document.getElementById('adimYazi').textContent = 'Bölüm '+(mevcutAdim+1)+' / '+toplamAdim;
+  document.getElementById('adimYuzde').textContent = yuzde+'%';
+}
+
+function kosulKontrol() {
+  Object.keys(soruKosullar).forEach(function(sid){
+    var k = soruKosullar[sid];
+    if(!k.kosul_soru_id) return;
+    var tetik = document.querySelector('[name="s_'+k.kosul_soru_id+'"]:checked');
+    var goster = tetik && tetik.value === k.kosul_deger;
+    document.querySelectorAll('[data-soru-id="'+sid+'"]').forEach(function(soruEl){
+      soruEl.dataset.gizli = goster?'0':'1';
+      if(!goster){
+        soruEl.querySelectorAll('input,textarea').forEach(function(inp){
+          inp.removeAttribute('required');
+          if(inp.type!=='radio'&&inp.type!=='checkbox') inp.value='';
+          else inp.checked=false;
+        });
+      }
+    });
+  });
+  setTimeout(yukseklikGonder, 100);
+}
+
+function checkboxStil(el) {
+  el.closest('.checkbox-opt').classList.toggle('isaretli', el.checked);
+}
+
+function yukseklikGonder() {
+  var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight);
+  window.parent.postMessage({iframeHeight: h + 60}, '*');
+}
+
+// Başlat
+zorunluGuncelle();
+window.addEventListener('load', yukseklikGonder);
+window.addEventListener('resize', yukseklikGonder);
+new MutationObserver(function(){setTimeout(yukseklikGonder,50);}).observe(document.body,{childList:true,subtree:true,attributes:true});
+</script>
+{% endblock %}

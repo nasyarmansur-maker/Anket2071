@@ -1,0 +1,97 @@
+{% extends "admin_base.html" %}
+{% set aktif_sayfa = "panel" %}
+{% block baslik %}Yönetici Paneli{% endblock %}
+{% block admin_icerik %}
+<div class="sayfa-baslik">📊 Genel Bakış</div>
+
+<div class="istat-grid">
+  <div class="istat-kutu" style="grid-column:span 2">
+    <div class="istat-sayi">{{ toplam }}</div>
+    <div class="istat-lbl">Toplam Yanıt</div>
+  </div>
+  {% for i in istat %}
+  <div class="istat-kutu">
+    <div class="istat-sayi" style="font-size:22px">{{ i.sayi }}</div>
+    <div class="istat-lbl">{{ i.anket.icon }} {{ i.anket.baslik[:18] }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% for i in istat %}
+<div class="kart" style="margin-bottom:.75rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+    <strong style="font-size:15px">{{ i.anket.icon }} {{ i.anket.baslik }}</strong>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <a href="/admin/sonuclar/{{ i.anket.id }}" class="btn btn-outline btn-kucuk">📋 Yanıtlar</a>
+      <a href="/admin/excel/{{ i.anket.id }}" class="btn btn-gri btn-kucuk">⬇ Excel</a>
+      <a href="/admin/qr/{{ i.anket.id }}" class="btn btn-gri btn-kucuk">📱 QR</a>
+    </div>
+  </div>
+
+  {% if i.sayi > 0 %}
+  <!-- Grafik canvas -->
+  <div style="position:relative;height:180px;margin-bottom:.5rem">
+    <canvas id="grafik_{{ i.anket.id }}"></canvas>
+  </div>
+
+  {% if i.son7 %}
+  <div style="font-size:12px;color:var(--metin-ik);margin-top:.5rem">
+    Son günler:
+    {% for g in i.son7 %}
+    <span class="badge badge-gri">{{ g.tarih }}: {{ g.sayi }} yanıt</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <script>
+  (function() {
+    var avg = {{ i.avg | tojson }};
+    var labels = Object.keys(avg).map(function(k){ return k.replace('s_',''); });
+    var values = Object.values(avg);
+    if (labels.length === 0) return;
+    var ctx = document.getElementById('grafik_{{ i.anket.id }}').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Ortalama Puan',
+          data: values,
+          backgroundColor: 'rgba(24,95,165,0.7)',
+          borderColor: 'rgba(24,95,165,1)',
+          borderWidth: 1,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 5, ticks: { stepSize: 1 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  })();
+  </script>
+  {% else %}
+  <div style="text-align:center;padding:1.5rem;color:var(--metin-uc);font-size:14px">
+    Henüz yanıt yok
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% if son %}
+<div class="kart">
+  <div style="font-size:15px;font-weight:700;margin-bottom:1rem">🕐 Son Yanıtlar</div>
+  {% for y in son %}
+  <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--kenar);font-size:13px;flex-wrap:wrap;gap:4px">
+    <span>{{ y.ai }} {{ y.ab[:30] }}</span>
+    <span style="color:var(--metin-uc)">{{ y.tarih }} {{ y.saat }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}

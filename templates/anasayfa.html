@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block baslik %}Ana Sayfa{% endblock %}
+{% block icerik %}
+<div class="kap">
+  <div class="hero">
+    {% if amblem %}
+      <img src="{{ amblem }}" class="hero-amblem" alt="Okul Amblemi">
+    {% endif %}
+    <h1>{{ okul_adi }}</h1>
+    <p>{{ hosgeldin }}</p>
+  </div>
+
+  {% if gorunum == "liste" %}
+  <div class="rol-liste">
+    {% for a in anketler %}
+    <a href="/anket/{{ a.id }}" class="rol-kart" style="margin-bottom:10px">
+      <div class="icon">{{ a.icon }}</div>
+      <div class="ic">
+        <h2>{{ a.baslik }}</h2>
+        <p>Ankete katılmak için tıklayın</p>
+      </div>
+      <span class="ok">Başla →</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% elif gorunum == "minimal" %}
+  <div style="max-width:400px;margin:0 auto">
+    {% for a in anketler %}
+    <a href="/anket/{{ a.id }}" class="btn btn-ana btn-tam" style="margin-bottom:10px;padding:14px;font-size:16px">
+      {{ a.icon }} {{ a.baslik }}
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  {# Varsayılan: kartlar #}
+  <div class="rol-grid">
+    {% for a in anketler %}
+    <a href="/anket/{{ a.id }}" class="rol-kart">
+      <span class="icon">{{ a.icon }}</span>
+      <h2>{{ a.baslik }}</h2>
+      <p>Ankete katılmak için tıklayın</p>
+      <span class="ok">Başla →</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not anketler %}
+  <div class="bos-durum">Henüz aktif anket bulunmuyor.</div>
+  {% endif %}
+
+  <p style="text-align:center;font-size:12px;color:var(--metin-uc);margin-top:1.5rem">{{ alt_yazi }}</p>
+</div>
+{% endblock %}

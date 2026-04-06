@@ -1,0 +1,191 @@
+# 📚 OKUL ANKET SİSTEMİ — KURULUM REHBERİ
+# Hiç bilmiyorum diyenler için adım adım anlatım
+
+==============================================
+  BÖLÜM 1: BİLGİSAYARINIZDA KURULUM (LOCAL)
+==============================================
+
+Bu yöntemle sistem sadece o bilgisayarda çalışır.
+Okul ağındaki diğer bilgisayarlar da erişebilir.
+
+──────────────────────────────────────────────
+ADIM 1: Python'u İndirin ve Kurun
+──────────────────────────────────────────────
+
+1. Tarayıcınızda şu adresi açın:
+   https://www.python.org/downloads/
+
+2. "Download Python 3.x.x" düğmesine tıklayın.
+
+3. İndirilen dosyayı çalıştırın.
+
+4. ÖNEMLİ: Kurulum başlarken alt kısımdaki
+   "Add Python to PATH" kutucuğunu işaretleyin! ✓
+
+5. "Install Now" deyin ve bitmesini bekleyin.
+
+──────────────────────────────────────────────
+ADIM 2: Proje Klasörünü Hazırlayın
+──────────────────────────────────────────────
+
+1. İndirdiğiniz okul_anket.zip dosyasını açın
+2. "okul_anket" klasörünü masaüstüne kopyalayın
+
+──────────────────────────────────────────────
+ADIM 3: Sistemi Başlatın
+──────────────────────────────────────────────
+
+"okul_anket" klasörünün içindeki:
+
+  👉 BASLAT_WINDOWS.bat  dosyasına çift tıklayın!
+
+(Mac/Linux kullanıcıları için terminal açın, klasöre gidin:
+  cd ~/Desktop/okul_anket
+  pip install flask openpyxl
+  python app.py )
+
+──────────────────────────────────────────────
+ADIM 4: Tarayıcıda Açın
+──────────────────────────────────────────────
+
+Siyah ekran (terminal) açılacak. 
+Tarayıcınızda şu adresi açın:
+
+  http://localhost:5000
+
+🎉 Sistem çalışıyor!
+
+──────────────────────────────────────────────
+ADIM 5: Diğer Bilgisayarlardan Erişim
+──────────────────────────────────────────────
+
+Okul ağındaki diğer bilgisayarlar da erişebilir.
+Sunucu bilgisayarın IP adresini öğrenin:
+
+Windows: Başlat > cmd > ipconfig yazın
+         "IPv4 Adresi" yazan satırdaki numarayı not edin
+         Örnek: 192.168.1.45
+
+Diğer bilgisayarlarda tarayıcıya şunu yazın:
+  http://192.168.1.45:5000
+
+
+==============================================
+  BÖLÜM 2: İNTERNETTEN ERİŞİM (ÜCRETSIZ BULUT)
+==============================================
+
+Bu yöntemle telefon dahil her cihazdan erişilir.
+Railway.app ücretsiz plan kullanıyoruz.
+
+──────────────────────────────────────────────
+ADIM 1: GitHub Hesabı Açın (ücretsiz)
+──────────────────────────────────────────────
+
+1. https://github.com adresine gidin
+2. "Sign up" ile ücretsiz hesap açın
+3. E-posta doğrulamasını yapın
+
+──────────────────────────────────────────────
+ADIM 2: Kodu GitHub'a Yükleyin
+──────────────────────────────────────────────
+
+1. GitHub'a giriş yapın
+2. Sağ üstteki "+" simgesine tıklayın
+3. "New repository" seçin
+4. İsim: okul-anket
+5. "Create repository" deyin
+6. "uploading an existing file" linkine tıklayın
+7. okul_anket klasörünün TÜM dosyalarını sürükleyin
+8. "Commit changes" deyin
+
+──────────────────────────────────────────────
+ADIM 3: Railway'e Bağlayın (ücretsiz hosting)
+──────────────────────────────────────────────
+
+1. https://railway.app adresine gidin
+2. "Start a New Project" deyin
+3. "Deploy from GitHub repo" seçin
+4. GitHub hesabınızla giriş yapın
+5. okul-anket reposunu seçin
+6. Otomatik deploy başlayacak (2-3 dakika)
+7. Settings > Domains > "Generate Domain" deyin
+
+Artık bir URL alacaksınız, örnek:
+  https://okul-anket-production.up.railway.app
+
+Bu URL'yi öğrenci, veli ve öğretmenlerle paylaşın!
+
+──────────────────────────────────────────────
+Alternatif: Render.com (de ücretsiz)
+──────────────────────────────────────────────
+
+1. https://render.com → "Get Started for Free"
+2. "New Web Service" → GitHub repo bağla
+3. Build Command: pip install -r requirements.txt
+4. Start Command: gunicorn app:app
+5. "Create Web Service"
+
+
+==============================================
+  BÖLÜM 3: AYARLAR VE ÖZELLEŞTİRME
+==============================================
+
+──────────────────────────────────────────────
+Yönetici Şifresini Değiştirmek
+──────────────────────────────────────────────
+
+app.py dosyasını Not Defteri ile açın.
+7. satırdaki şu kısmı bulun:
+
+  ADMIN_SIFRE = "okul2024"
+
+okul2024 yerine kendi şifrenizi yazın, kaydedin.
+
+──────────────────────────────────────────────
+Yönetici Paneline Girmek
+──────────────────────────────────────────────
+
+Adres çubuğuna yazın:
+  http://localhost:5000/admin      (local için)
+  https://sizin-adresiniz/admin    (bulut için)
+
+Varsayılan şifre: okul2024
+
+──────────────────────────────────────────────
+Excel'e Aktarma
+──────────────────────────────────────────────
+
+Yönetici panelinde "⬇ Excel İndir" düğmesine
+tıklayarak tüm sonuçları Excel'e aktarabilirsiniz.
+Her rol için ayrı sekme oluşturulur.
+
+──────────────────────────────────────────────
+Veri Nerede Saklanıyor?
+──────────────────────────────────────────────
+
+Tüm veriler "anket.db" dosyasında saklanır.
+Bu dosyayı yedeklemeniz yeterli.
+Silmek istediğinizde bu dosyayı silin.
+
+
+==============================================
+  SORUN GİDERME
+==============================================
+
+❓ "python bulunamadı" hatası
+→ Python'u yeniden kurun, "Add to PATH" seçeneğini işaretleyin
+
+❓ Tarayıcıda sayfa açılmıyor
+→ BASLAT_WINDOWS.bat hâlâ açık mı? Kapatmayın!
+→ Adresi doğru yazdınız mı? http://localhost:5000
+
+❓ Railway'de hata var
+→ Logs sekmesini kontrol edin
+→ requirements.txt dosyasının yüklendiğinden emin olun
+
+❓ Şifreyi unuttum
+→ app.py dosyasında ADMIN_SIFRE satırını değiştirin
+
+──────────────────────────────────────────────
+📧 Daha fazla yardım için Claude'a sorun!
+──────────────────────────────────────────────

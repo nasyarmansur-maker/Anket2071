@@ -1,0 +1,156 @@
+{% extends "admin_base.html" %}
+{% set aktif_sayfa = "anketler" %}
+{% block baslik %}Sonuçlar{% endblock %}
+{% block ekstra_css %}
+<style>
+.grafik-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
+.grafik-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:1rem}
+.grafik-kart h4{font-size:13px;font-weight:600;margin-bottom:.75rem;color:var(--metin-ik)}
+.filtre-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+</style>
+{% endblock %}
+{% block admin_icerik %}
+
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+  <a href="/admin/anketler" class="btn btn-gri btn-kucuk">← Geri</a>
+  <div class="sayfa-baslik" style="margin-bottom:0;flex:1">{{ anket.icon }} {{ anket.baslik }}</div>
+  <a href="/admin/excel/{{ anket.id }}" class="btn btn-ana btn-kucuk">⬇ Excel</a>
+  <a href="/admin/qr/{{ anket.id }}" class="btn btn-gri btn-kucuk">📱 QR İndir</a>
+</div>
+
+<!-- Filtreler -->
+<form class="filtre-form" method="GET">
+  <div>
+    <label class="alan-lbl">Tarihe Göre</label>
+    <select name="tarih" onchange="this.form.submit()" style="width:auto">
+      <option value="">Tüm tarihler</option>
+      {% for t in tarihler %}
+      <option value="{{ t }}" {% if t==filtre_tarih %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="alan-lbl">Yanıt Ara</label>
+    <input type="text" name="arama" value="{{ filtre_arama }}" placeholder="Kelime ara..."
+           style="width:160px">
+  </div>
+  <button type="submit" class="btn btn-ana btn-kucuk">Filtrele</button>
+  <a href="/admin/sonuclar/{{ anket.id }}" class="btn btn-gri btn-kucuk">Temizle</a>
+</form>
+
+<div class="kart" style="margin-bottom:1rem">
+  <strong>{{ toplam_yanit }}</strong> yanıt gösteriliyor.
+</div>
+
+<!-- Grafikler -->
+{% set istat = soru_istat | tojson %}
+<div class="grafik-grid" id="grafikler"></div>
+
+<!-- Yanıt Listesi -->
+{% if yanitlar %}
+{% for y in yanitlar %}
+<div class="yanit-kart">
+  <div class="yanit-kart-ust">
+    <span class="yanit-meta">📅 {{ y.tarih }} {{ y.saat }} &nbsp;·&nbsp; #{{ y.id }}</span>
+    <form method="POST" action="/admin/yanit_sil/{{ y.id }}"
+          onsubmit="return confirm('Bu yanıtı silmek istediğinizden emin misiniz?')">
+      <button type="submit" class="btn btn-tehlike btn-kucuk">🗑 Sil</button>
+    </form>
+  </div>
+  <div class="veri-satirlar">
+    {% for bolum in anket.bolumler %}
+      {% for soru in bolum.sorular %}
+        {% set val = y.veriler.get('s_' ~ soru.id, '') %}
+        {% if val %}
+          {% if val|int(-1) >= 1 and val|int(-1) <= 5 and soru.tip == 'yildiz' %}
+          <span class="veri-chip">
+            {{ soru.metin[:28] }}:
+            <span class="yildiz-goster">
+              {% for ii in range(val|int) %}★{% endfor %}{% for ii in range(5-val|int) %}☆{% endfor %}
+            </span>
+          </span>
+          {% elif val|length > 50 %}
+          <div class="yorum-alinti" style="width:100%">
+            <em style="font-size:11px">{{ soru.metin[:35] }}:</em><br>{{ val }}
+          </div>
+          {% else %}
+          <span class="veri-chip">{{ soru.metin[:20] }}: {{ val }}</span>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="bos-durum">Bu filtreye uygun yanıt bulunamadı.</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+var soruIstat = {{ soru_istat | safe }};
+var anketBolumler = {{ anket.bolumler | tojson }};
+var kap = document.getElementById('grafikler');
+
+anketBolumler.forEach(function(bolum) {
+  bolum.sorular.forEach(function(soru) {
+    var key = 's_' + soru.id;
+    var veri = soruIstat[key];
+    if (!veri || Object.keys(veri).length === 0) return;
+
+    var div = document.createElement('div');
+    div.className = 'grafik-kart';
+    var canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '200px';
+    div.innerHTML = '<h4>' + soru.metin.substring(0,60) + '</h4>';
+    div.appendChild(canvas);
+    kap.appendChild(div);
+
+    var labels = Object.keys(veri);
+    var values = Object.values(veri);
+    var toplamV = values.reduce(function(a,b){return a+b;},0);
+
+    // Yıldız için çubuk, seçim için pasta, diğerleri için yatay çubuk
+    var tip = soru.tip === 'yildiz' ? 'bar' : (soru.tip === 'secim' || soru.tip === 'coklu') ? 'doughnut' : 'bar';
+    var renkler = ['#185FA5','#3B6D11','#854F0B','#A32D2D','#6c3483','#0f7173'];
+
+    new Chart(canvas.getContext('2d'), {
+      type: tip,
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: tip === 'doughnut'
+            ? renkler.slice(0, labels.length)
+            : 'rgba(24,95,165,0.7)',
+          borderColor: tip === 'doughnut'
+            ? renkler.slice(0, labels.length)
+            : 'rgba(24,95,165,1)',
+          borderWidth: 1,
+          borderRadius: tip !== 'doughnut' ? 6 : 0
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: tip === 'doughnut', position: 'bottom',
+                    labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                var v = c.raw;
+                var pct = Math.round(v/toplamV*100);
+                return v + ' yanıt (' + pct + '%)';
+              }
+            }
+          }
+        },
+        scales: tip !== 'doughnut' ? {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        } : {}
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "admin_base.html" %}
+{% set aktif_sayfa = "anketler" %}
+{% block baslik %}Anket Yönetimi{% endblock %}
+{% block admin_icerik %}
+
+<div class="sayfa-baslik">📋 Anket Yönetimi</div>
+
+<!-- Yeni Anket Ekle -->
+<div class="kart" style="margin-bottom:1rem">
+  <div style="font-size:14px;font-weight:700;margin-bottom:.75rem">➕ Yeni Anket Oluştur</div>
+  <form method="POST" action="/admin/anket/yeni" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+    <div style="flex:1;min-width:140px">
+      <label class="alan-lbl">Başlık</label>
+      <input type="text" name="baslik" placeholder="Anket başlığı" required>
+    </div>
+    <div style="width:90px">
+      <label class="alan-lbl">İkon</label>
+      <input type="text" name="icon" value="📝" placeholder="📝">
+    </div>
+    <div style="width:130px">
+      <label class="alan-lbl">Rol</label>
+      <select name="rol">
+        <option value="ogrenci">Öğrenci</option>
+        <option value="veli">Veli</option>
+        <option value="ogretmen">Öğretmen</option>
+        <option value="diger">Diğer</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-ana">Oluştur</button>
+  </form>
+</div>
+
+<!-- Mevcut Anketler -->
+{% for a in anketler %}
+<div class="kart" style="margin-bottom:.75rem">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:28px">{{ a.icon }}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:700;font-size:15px">{{ a.baslik }}</div>
+      <div style="font-size:12px;color:var(--metin-ik)">Rol: {{ a.rol }} |
+        {% if a.aktif %}<span style="color:var(--yesil)">✓ Aktif</span>{% else %}<span style="color:var(--kirmizi)">✗ Pasif</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <a href="/admin/anket/{{ a.id }}/duzenle" class="btn btn-outline btn-kucuk">✏️ Düzenle</a>
+      <a href="/admin/sonuclar/{{ a.id }}" class="btn btn-gri btn-kucuk">📊 Sonuçlar</a>
+      <a href="/admin/excel/{{ a.id }}" class="btn btn-gri btn-kucuk">⬇ Excel</a>
+      <form method="POST" action="/admin/anket/{{ a.id }}/sil" onsubmit="return confirm('Bu anketi ve tüm yanıtları silmek istediğinizden emin misiniz?')">
+        <button type="submit" class="btn btn-tehlike btn-kucuk">🗑 Sil</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="bos-durum">Henüz anket oluşturulmamış.</div>
+{% endfor %}
+
+{% endblock %}
