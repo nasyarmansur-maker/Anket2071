@@ -306,4 +306,53 @@
     💾 Tüm Ayarları Kaydet
   </button>
 </form>
+
+<script>
+/* Ayarlar sayfasındaki radio kartları — tıklanınca border/renk değişsin */
+function radioKartGuncelle(inp) {
+  var grup = inp.closest('div[style*="display:flex"]') ||
+             inp.closest('.tema-grid') ||
+             inp.closest('div');
+  if (!grup) return;
+  /* Tüm kardeş card div'lerini sıfırla */
+  grup.querySelectorAll('label').forEach(function(lbl) {
+    var card = lbl.querySelector('div');
+    if (!card) return;
+    card.style.borderColor = 'var(--kenar)';
+    card.style.borderWidth = '2px';
+    var txt = card.querySelector('div');
+    if (txt) { txt.style.color = 'var(--metin-ik)'; txt.style.fontWeight = '500'; }
+  });
+  /* Seçili olanı vurgula */
+  var myCard = inp.closest('label') && inp.closest('label').querySelector('div');
+  if (myCard) {
+    myCard.style.borderColor = 'var(--ana)';
+    myCard.style.borderWidth = '2px';
+    var txt2 = myCard.querySelector('div');
+    if (txt2) { txt2.style.color = 'var(--ana)'; txt2.style.fontWeight = '700'; }
+  }
+}
+
+/* Sayfa yüklenince tüm radio input'lara event ekle */
+document.querySelectorAll('input[type=radio]').forEach(function(inp) {
+  inp.addEventListener('change', function() { radioKartGuncelle(this); });
+});
+
+/* Tema daireleri için özel: tıklayınca kenarlık ekle */
+document.querySelectorAll('.tema-top').forEach(function(div) {
+  div.addEventListener('click', function() {
+    document.querySelectorAll('.tema-top').forEach(function(d) {
+      d.style.outline = 'none';
+    });
+    div.style.outline = '3px solid var(--metin)';
+    div.style.outlineOffset = '2px';
+  });
+  /* Sayfa açılınca zaten seçili olanı göster */
+  var inp = div.querySelector('input[type=radio]');
+  if (inp && inp.checked) {
+    div.style.outline = '3px solid var(--metin)';
+    div.style.outlineOffset = '2px';
+  }
+});
+</script>
 {% endblock %}

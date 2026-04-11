@@ -1,156 +1,432 @@
 {% extends "admin_base.html" %}
 {% set aktif_sayfa = "anketler" %}
-{% block baslik %}Sonuçlar{% endblock %}
+{% block baslik %}Sonuçlar — {{ anket.baslik }}{% endblock %}
 {% block ekstra_css %}
 <style>
-.grafik-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem}
-.grafik-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:1rem}
-.grafik-kart h4{font-size:13px;font-weight:600;margin-bottom:.75rem;color:var(--metin-ik)}
-.filtre-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+.son-header{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap}
+.son-header .sayfa-baslik{margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Özet kartlar */
+.ozet-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.25rem}
+.ozet-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:1rem 1.125rem;position:relative;overflow:hidden}
+.ozet-kart::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ana)}
+.ozet-kart.yesil::before{background:var(--yesil)}
+.ozet-kart.turuncu::before{background:var(--turuncu)}
+.ozet-kart.mor::before{background:#6c3483}
+.ozet-etiket{font-size:11px;font-weight:700;color:var(--metin-uc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ozet-deger{font-size:28px;font-weight:700;color:var(--metin);line-height:1}
+.ozet-alt{font-size:11px;color:var(--metin-ik);margin-top:3px}
+
+/* Trend */
+.trend-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:1rem 1.125rem;margin-bottom:1.25rem}
+.bolum-baslik-kucuk{font-size:11px;font-weight:700;color:var(--metin-ik);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem}
+
+/* Filtre */
+.filtre-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:.875rem 1rem;margin-bottom:1.25rem}
+.filtre-ic{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.filtre-ic > div{display:flex;flex-direction:column;gap:3px}
+.filtre-ic label{font-size:11px;font-weight:600;color:var(--metin-uc);text-transform:uppercase;letter-spacing:.4px}
+.filtre-ic input,.filtre-ic select{padding:7px 10px;border:1.5px solid var(--kenar);border-radius:var(--r);font-size:13px;background:var(--yuzey);color:var(--metin);outline:none}
+.filtre-ic input:focus,.filtre-ic select:focus{border-color:var(--ana);box-shadow:0 0 0 3px var(--ana-ac)}
+.filtre-ic input[type=text]{width:175px}
+.filtre-ic select{width:155px}
+.filtre-akif{background:var(--ana-ac);border:1.5px solid var(--ana);border-radius:var(--r);padding:4px 10px;font-size:12px;color:var(--ana);font-weight:600;display:inline-flex;align-items:center;gap:4px}
+
+/* Grafik kartlar */
+.grafik-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1rem;margin-bottom:1.5rem}
+.grafik-kart{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);padding:1.125rem;display:flex;flex-direction:column;gap:.75rem}
+.grafik-kart-bas{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.grafik-baslik{font-size:13px;font-weight:600;color:var(--metin);line-height:1.4;flex:1}
+.gt-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.gt-yildiz{background:#fef9e7;color:#c8920a;border:1px solid #f5e298}
+.gt-secim{background:var(--ana-ac);color:var(--ana);border:1px solid var(--ana-orta)}
+.gt-coklu{background:var(--yesil-ac);color:var(--yesil);border:1px solid #b5d89a}
+.gt-metin{background:var(--gri-ac);color:var(--metin-ik);border:1px solid var(--kenar)}
+.gt-eh{background:var(--turuncu-ac);color:var(--turuncu);border:1px solid #f5c6a0}
+
+/* Yıldız */
+.yort-blok{display:flex;align-items:center;gap:12px}
+.yort-sayi{font-size:36px;font-weight:700;color:var(--metin);line-height:1}
+.yort-sag{display:flex;flex-direction:column;gap:3px}
+.yort-dizi{display:flex;gap:2px}
+.yort-dizi .dolu{color:#EF9F27;font-size:20px}
+.yort-dizi .bos{color:var(--kenar-koy);font-size:20px}
+.yort-kac{font-size:11px;color:var(--metin-uc)}
+
+/* Evet/Hayır */
+.eh-sat{display:flex;gap:8px}
+.eh-kutu{flex:1;border-radius:var(--r);padding:10px 8px;text-align:center;border:1px solid var(--kenar)}
+.eh-kutu .eh-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.eh-kutu .eh-n{font-size:26px;font-weight:700;line-height:1}
+.eh-kutu .eh-p{font-size:11px;margin-top:2px}
+.eh-kutu.evet{background:var(--yesil-ac);border-color:#b5d89a}
+.eh-kutu.evet .eh-lbl,.eh-kutu.evet .eh-n{color:var(--yesil)}
+.eh-kutu.hayir{background:var(--kirmizi-ac);border-color:#f5b8b8}
+.eh-kutu.hayir .eh-lbl,.eh-kutu.hayir .eh-n{color:var(--kirmizi)}
+.eh-bar{height:7px;background:var(--gri-ac);border-radius:20px;overflow:hidden;margin-top:2px}
+.eh-bar-ic{height:100%;background:var(--yesil);border-radius:20px;transition:width .7s ease}
+
+/* Yatay çubuk (seçim) */
+.yzc-listesi{display:flex;flex-direction:column;gap:7px}
+.yzc-satir{display:flex;flex-direction:column;gap:2px}
+.yzc-ust{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.yzc-lbl{color:var(--metin-ik);font-weight:500;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yzc-n{color:var(--metin-uc);font-size:11px;flex-shrink:0}
+.yzc-bar-kap{height:7px;background:var(--gri-ac);border-radius:20px;overflow:hidden}
+.yzc-bar-ic{height:100%;border-radius:20px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+
+/* Metin yanıtlar */
+.mt-liste{display:flex;flex-direction:column;gap:5px;max-height:230px;overflow-y:auto}
+.mt-yorum{font-size:12px;color:var(--metin);background:var(--gri-ac);border-left:3px solid var(--ana-orta);border-radius:0 var(--r) var(--r) 0;padding:7px 10px;line-height:1.5}
+.mt-bos{font-size:12px;color:var(--metin-uc);font-style:italic;text-align:center;padding:1rem 0}
+
+/* Yanıt listesi */
+.yl-baslik{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:6px}
+.yl-baslik h3{font-size:12px;font-weight:700;color:var(--metin-ik);text-transform:uppercase;letter-spacing:.5px;margin:0}
+.yl-sayac{font-size:12px;color:var(--metin-uc);background:var(--gri-ac);padding:2px 10px;border-radius:20px}
+.yk{background:var(--yuzey);border:1px solid var(--kenar);border-radius:var(--r-lg);margin-bottom:7px;overflow:hidden;transition:box-shadow .12s}
+.yk:hover{box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.yk-ust{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.yk-no{width:26px;height:26px;border-radius:50%;background:var(--ana-ac);color:var(--ana);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.yk-meta{flex:1;min-width:0}
+.yk-tarih{font-size:13px;font-weight:600;color:var(--metin)}
+.yk-saat{font-size:11px;color:var(--metin-uc)}
+.yk-oniz{font-size:11px;color:var(--metin-ik);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+.yk-ok{color:var(--metin-uc);font-size:14px;transition:transform .2s;flex-shrink:0}
+.yk.acik .yk-ok{transform:rotate(180deg)}
+.yk-detay{display:none;border-top:1px solid var(--kenar);padding:10px 14px;background:var(--arka)}
+.yk.acik .yk-detay{display:block;animation:fade-in .15s ease}
+@keyframes fade-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.yk-sat{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--kenar);align-items:baseline}
+.yk-sat:last-child{border-bottom:none}
+.yk-q{font-size:12px;color:var(--metin-ik);width:160px;flex-shrink:0;line-height:1.4}
+.yk-v{font-size:13px;color:var(--metin);font-weight:500;flex:1}
+.yk-v .y-mini{color:#EF9F27}
+.yk-footer{display:flex;justify-content:flex-end;padding:8px 14px;border-top:1px solid var(--kenar);background:var(--arka)}
+.bos-durum{text-align:center;padding:4rem 1rem;color:var(--metin-uc)}
+.bos-durum .bos-ikon{font-size:48px;opacity:.35;margin-bottom:10px}
 </style>
 {% endblock %}
+
 {% block admin_icerik %}
 
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+<!-- HEADER -->
+<div class="son-header">
   <a href="/admin/anketler" class="btn btn-gri btn-kucuk">← Geri</a>
-  <div class="sayfa-baslik" style="margin-bottom:0;flex:1">{{ anket.icon }} {{ anket.baslik }}</div>
-  <a href="/admin/excel/{{ anket.id }}" class="btn btn-ana btn-kucuk">⬇ Excel</a>
-  <a href="/admin/qr/{{ anket.id }}" class="btn btn-gri btn-kucuk">📱 QR İndir</a>
+  <div class="sayfa-baslik" style="margin-bottom:0">{{ anket.icon }} {{ anket.baslik }}</div>
+  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+    <a href="/admin/excel/{{ anket.id }}" class="btn btn-ana btn-kucuk">⬇ Excel</a>
+    <a href="/admin/qr/{{ anket.id }}" class="btn btn-gri btn-kucuk">📱 QR</a>
+  </div>
 </div>
 
-<!-- Filtreler -->
-<form class="filtre-form" method="GET">
-  <div>
-    <label class="alan-lbl">Tarihe Göre</label>
-    <select name="tarih" onchange="this.form.submit()" style="width:auto">
-      <option value="">Tüm tarihler</option>
-      {% for t in tarihler %}
-      <option value="{{ t }}" {% if t==filtre_tarih %}selected{% endif %}>{{ t }}</option>
-      {% endfor %}
-    </select>
+<!-- ÖZET KARTLAR -->
+<div class="ozet-grid">
+  <div class="ozet-kart">
+    <div class="ozet-etiket">Toplam Yanıt</div>
+    <div class="ozet-deger">{{ toplam_db }}</div>
+    <div class="ozet-alt">tüm zamanlar</div>
   </div>
-  <div>
-    <label class="alan-lbl">Yanıt Ara</label>
-    <input type="text" name="arama" value="{{ filtre_arama }}" placeholder="Kelime ara..."
-           style="width:160px">
+  <div class="ozet-kart yesil">
+    <div class="ozet-etiket">Aktif Gün</div>
+    <div class="ozet-deger">{{ tarihler | length }}</div>
+    <div class="ozet-alt">farklı gün</div>
   </div>
-  <button type="submit" class="btn btn-ana btn-kucuk">Filtrele</button>
-  <a href="/admin/sonuclar/{{ anket.id }}" class="btn btn-gri btn-kucuk">Temizle</a>
-</form>
-
-<div class="kart" style="margin-bottom:1rem">
-  <strong>{{ toplam_yanit }}</strong> yanıt gösteriliyor.
+  <div class="ozet-kart turuncu">
+    <div class="ozet-etiket">Son Yanıt</div>
+    <div class="ozet-deger" style="font-size:17px;line-height:1.3">{{ tarihler[-1] if tarihler else '—' }}</div>
+    <div class="ozet-alt">&nbsp;</div>
+  </div>
+  <div class="ozet-kart mor">
+    <div class="ozet-etiket">Günlük Ort.</div>
+    <div class="ozet-deger">{{ ((toplam_db / (tarihler|length)) | round(1)) if tarihler|length > 0 else 0 }}</div>
+    <div class="ozet-alt">yanıt / gün</div>
+  </div>
 </div>
 
-<!-- Grafikler -->
-{% set istat = soru_istat | tojson %}
-<div class="grafik-grid" id="grafikler"></div>
+<!-- TREND -->
+{% if tarihler | length > 1 %}
+<div class="trend-kart">
+  <div class="bolum-baslik-kucuk">📈 Günlük Yanıt Trendi</div>
+  <div style="position:relative;height:100px">
+    <canvas id="trendC"></canvas>
+  </div>
+</div>
+{% endif %}
 
-<!-- Yanıt Listesi -->
+<!-- FİLTRE -->
+<div class="filtre-kart">
+  <form class="filtre-ic" method="GET">
+    <div>
+      <label>Tarih</label>
+      <select name="tarih" onchange="this.form.submit()">
+        <option value="">Tüm tarihler</option>
+        {% for t in tarihler | reverse %}
+        <option value="{{ t }}" {% if t==filtre_tarih %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Arama</label>
+      <input type="text" name="arama" value="{{ filtre_arama }}" placeholder="Yanıt içinde ara...">
+    </div>
+    <button type="submit" class="btn btn-ana btn-kucuk">Filtrele</button>
+    {% if filtre_tarih or filtre_arama %}
+    <a href="/admin/sonuclar/{{ anket.id }}" class="btn btn-gri btn-kucuk">✕ Temizle</a>
+    {% endif %}
+  </form>
+  {% if filtre_tarih or filtre_arama %}
+  <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    {% if filtre_tarih %}<span class="filtre-akif">📅 {{ filtre_tarih }}</span>{% endif %}
+    {% if filtre_arama %}<span class="filtre-akif">🔍 "{{ filtre_arama }}"</span>{% endif %}
+    <span style="font-size:12px;color:var(--metin-ik)">— {{ toplam_yanit }} sonuç</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- SORU GRAFİKLERİ -->
+{% set ns = namespace(var=false) %}
+{% for bolum in anket.bolumler %}{% for soru in bolum.sorular %}{% if soru.tip in ['secim','coklu','yildiz','evet_hayir','metin'] %}{% set ns.var=true %}{% endif %}{% endfor %}{% endfor %}
+
+{% if ns.var %}
+<div class="grafik-grid">
+{% for bolum in anket.bolumler %}{% for soru in bolum.sorular %}
+
+{% if soru.tip == 'yildiz' %}
+<div class="grafik-kart">
+  <div class="grafik-kart-bas">
+    <div class="grafik-baslik">{{ soru.metin }}</div>
+    <span class="gt-badge gt-yildiz">⭐ Yıldız</span>
+  </div>
+  <div class="yort-blok">
+    <div class="yort-sayi" id="ys_{{ soru.id }}">—</div>
+    <div class="yort-sag">
+      <div class="yort-dizi" id="yd_{{ soru.id }}"></div>
+      <div class="yort-kac" id="yk_{{ soru.id }}"></div>
+    </div>
+  </div>
+  <div style="position:relative;height:130px"><canvas id="c_{{ soru.id }}"></canvas></div>
+</div>
+
+{% elif soru.tip == 'evet_hayir' %}
+<div class="grafik-kart">
+  <div class="grafik-kart-bas">
+    <div class="grafik-baslik">{{ soru.metin }}</div>
+    <span class="gt-badge gt-eh">👍 E/H</span>
+  </div>
+  <div class="eh-sat">
+    <div class="eh-kutu evet">
+      <div class="eh-lbl">Evet</div>
+      <div class="eh-n" id="ee_{{ soru.id }}">—</div>
+      <div class="eh-p" id="ep_{{ soru.id }}"></div>
+    </div>
+    <div class="eh-kutu hayir">
+      <div class="eh-lbl">Hayır</div>
+      <div class="eh-n" id="eh_{{ soru.id }}">—</div>
+      <div class="eh-p" id="hp_{{ soru.id }}"></div>
+    </div>
+  </div>
+  <div class="eh-bar"><div class="eh-bar-ic" id="eb_{{ soru.id }}" style="width:0%"></div></div>
+</div>
+
+{% elif soru.tip in ['secim','coklu'] %}
+<div class="grafik-kart">
+  <div class="grafik-kart-bas">
+    <div class="grafik-baslik">{{ soru.metin }}</div>
+    <span class="gt-badge {% if soru.tip=='coklu' %}gt-coklu{% else %}gt-secim{% endif %}">{% if soru.tip=='coklu' %}☑️ Çoklu{% else %}🔘 Seçim{% endif %}</span>
+  </div>
+  <div class="yzc-listesi" id="yzc_{{ soru.id }}"><div class="mt-bos">Yükleniyor...</div></div>
+</div>
+
+{% elif soru.tip == 'metin' %}
+<div class="grafik-kart">
+  <div class="grafik-kart-bas">
+    <div class="grafik-baslik">{{ soru.metin }}</div>
+    <span class="gt-badge gt-metin">📝 Metin</span>
+  </div>
+  <div class="mt-liste" id="mt_{{ soru.id }}"><div class="mt-bos">Yükleniyor...</div></div>
+</div>
+{% endif %}
+
+{% endfor %}{% endfor %}
+</div>
+{% endif %}
+
+<!-- BİREYSEL YANITLAR -->
+<div class="yl-baslik">
+  <h3>📋 Bireysel Yanıtlar</h3>
+  <span class="yl-sayac">{{ toplam_yanit }} yanıt</span>
+</div>
+
 {% if yanitlar %}
 {% for y in yanitlar %}
-<div class="yanit-kart">
-  <div class="yanit-kart-ust">
-    <span class="yanit-meta">📅 {{ y.tarih }} {{ y.saat }} &nbsp;·&nbsp; #{{ y.id }}</span>
-    <form method="POST" action="/admin/yanit_sil/{{ y.id }}"
-          onsubmit="return confirm('Bu yanıtı silmek istediğinizden emin misiniz?')">
-      <button type="submit" class="btn btn-tehlike btn-kucuk">🗑 Sil</button>
-    </form>
+<div class="yk" id="yk_row_{{ y.id }}">
+  <div class="yk-ust" onclick="toggle('{{ y.id }}')">
+    <div class="yk-no">#{{ loop.index }}</div>
+    <div class="yk-meta">
+      <div class="yk-tarih">{{ y.tarih }} <span style="color:var(--metin-ik);font-weight:400;font-size:12px">{{ y.saat }}</span></div>
+      <div class="yk-oniz">
+        {%- set ns2=namespace(txt='',c=0) -%}
+        {%- for b in anket.bolumler -%}{%- for s in b.sorular -%}
+          {%- if ns2.c < 3 -%}
+            {%- set v=y.veriler.get('s_'~s.id,'') -%}
+            {%- if v -%}
+              {%- if ns2.c>0 -%}{%- set ns2.txt=ns2.txt~' · ' -%}{%- endif -%}
+              {%- set ns2.txt=ns2.txt~s.metin[:16]~': '~v[:18] -%}
+              {%- set ns2.c=ns2.c+1 -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}{%- endfor -%}
+        {{ ns2.txt }}
+      </div>
+    </div>
+    <div class="yk-ok">▾</div>
   </div>
-  <div class="veri-satirlar">
-    {% for bolum in anket.bolumler %}
-      {% for soru in bolum.sorular %}
-        {% set val = y.veriler.get('s_' ~ soru.id, '') %}
-        {% if val %}
-          {% if val|int(-1) >= 1 and val|int(-1) <= 5 and soru.tip == 'yildiz' %}
-          <span class="veri-chip">
-            {{ soru.metin[:28] }}:
-            <span class="yildiz-goster">
-              {% for ii in range(val|int) %}★{% endfor %}{% for ii in range(5-val|int) %}☆{% endfor %}
-            </span>
-          </span>
-          {% elif val|length > 50 %}
-          <div class="yorum-alinti" style="width:100%">
-            <em style="font-size:11px">{{ soru.metin[:35] }}:</em><br>{{ val }}
-          </div>
-          {% else %}
-          <span class="veri-chip">{{ soru.metin[:20] }}: {{ val }}</span>
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-    {% endfor %}
+  <div class="yk-detay" id="yd_row_{{ y.id }}">
+    {% for bolum in anket.bolumler %}{% for soru in bolum.sorular %}
+    {% set val=y.veriler.get('s_'~soru.id,'') %}
+    {% if val %}
+    <div class="yk-sat">
+      <div class="yk-q">{{ soru.metin[:50] }}{% if soru.metin|length>50 %}…{% endif %}</div>
+      <div class="yk-v">
+        {% if soru.tip=='yildiz' %}
+          <span class="y-mini">{% for i in range(val|int) %}★{% endfor %}{% for i in range(5-val|int) %}☆{% endfor %}</span> {{ val }}/5
+        {% else %}{{ val }}{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}{% endfor %}
+    <div class="yk-footer">
+      <form method="POST" action="/admin/yanit_sil/{{ y.id }}"
+            onsubmit="return confirm('Bu yanıtı silmek istediğinizden emin misiniz?')">
+        <input type="hidden" name="anket_id" value="{{ anket.id }}">
+        <button type="submit" class="btn btn-tehlike btn-kucuk">🗑 Yanıtı Sil</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endfor %}
 {% else %}
-<div class="bos-durum">Bu filtreye uygun yanıt bulunamadı.</div>
+<div class="bos-durum">
+  <div class="bos-ikon">🔍</div>
+  <div>Bu filtreye uygun yanıt bulunamadı.</div>
+  {% if filtre_tarih or filtre_arama %}
+  <a href="/admin/sonuclar/{{ anket.id }}" class="btn btn-gri btn-kucuk" style="margin-top:12px">Filtreleri Temizle</a>
+  {% endif %}
+</div>
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-var soruIstat = {{ soru_istat | safe }};
-var anketBolumler = {{ anket.bolumler | tojson }};
-var kap = document.getElementById('grafikler');
+var SI = {{ soru_istat | safe }};
+var YO = {{ yildiz_ort | safe }};
+var TS = {{ tarih_sayilari | safe }};
+var AB = {{ anket.bolumler | tojson }};
+var CLR = ['#185FA5','#3B6D11','#854F0B','#A32D2D','#6c3483','#0f7173','#d35400','#c0392b'];
 
-anketBolumler.forEach(function(bolum) {
-  bolum.sorular.forEach(function(soru) {
-    var key = 's_' + soru.id;
-    var veri = soruIstat[key];
-    if (!veri || Object.keys(veri).length === 0) return;
+/* Trend */
+var tEl=document.getElementById('trendC');
+if(tEl && TS.length>1){
+  new Chart(tEl.getContext('2d'),{type:'line',data:{
+    labels:TS.map(function(d){return d.t;}),
+    datasets:[{data:TS.map(function(d){return d.n;}),borderColor:'var(--ana)',
+      backgroundColor:'rgba(24,95,165,.08)',borderWidth:2,
+      pointBackgroundColor:'var(--ana)',pointRadius:3,fill:true,tension:.4}]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.raw+' yanıt';}}}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:7}},
+            y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}}}
+  }});
+}
 
-    var div = document.createElement('div');
-    div.className = 'grafik-kart';
-    var canvas = document.createElement('canvas');
-    canvas.style.maxHeight = '200px';
-    div.innerHTML = '<h4>' + soru.metin.substring(0,60) + '</h4>';
-    div.appendChild(canvas);
-    kap.appendChild(div);
+/* Soru grafikleri */
+AB.forEach(function(bolum){
+  bolum.sorular.forEach(function(soru){
+    var key='s_'+soru.id;
+    var veri=SI[key]||{};
+    var labs=Object.keys(veri);
+    var vals=Object.values(veri);
+    var tot=vals.reduce(function(a,b){return a+b;},0);
 
-    var labels = Object.keys(veri);
-    var values = Object.values(veri);
-    var toplamV = values.reduce(function(a,b){return a+b;},0);
-
-    // Yıldız için çubuk, seçim için pasta, diğerleri için yatay çubuk
-    var tip = soru.tip === 'yildiz' ? 'bar' : (soru.tip === 'secim' || soru.tip === 'coklu') ? 'doughnut' : 'bar';
-    var renkler = ['#185FA5','#3B6D11','#854F0B','#A32D2D','#6c3483','#0f7173'];
-
-    new Chart(canvas.getContext('2d'), {
-      type: tip,
-      data: {
-        labels: labels,
-        datasets: [{
-          data: values,
-          backgroundColor: tip === 'doughnut'
-            ? renkler.slice(0, labels.length)
-            : 'rgba(24,95,165,0.7)',
-          borderColor: tip === 'doughnut'
-            ? renkler.slice(0, labels.length)
-            : 'rgba(24,95,165,1)',
-          borderWidth: 1,
-          borderRadius: tip !== 'doughnut' ? 6 : 0
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: tip === 'doughnut', position: 'bottom',
-                    labels: { font: { size: 11 }, boxWidth: 12 } },
-          tooltip: {
-            callbacks: {
-              label: function(c) {
-                var v = c.raw;
-                var pct = Math.round(v/toplamV*100);
-                return v + ' yanıt (' + pct + '%)';
-              }
-            }
-          }
-        },
-        scales: tip !== 'doughnut' ? {
-          y: { beginAtZero: true, ticks: { stepSize: 1 } }
-        } : {}
+    if(soru.tip==='yildiz'){
+      var ort=YO[key];
+      var ys=document.getElementById('ys_'+soru.id);
+      var ydiz=document.getElementById('yd_'+soru.id);
+      var ykac=document.getElementById('yk_'+soru.id);
+      if(ys&&ort!==undefined) ys.textContent=ort;
+      if(ydiz&&ort!==undefined){
+        var d=Math.round(ort);
+        for(var i=0;i<d;i++){var sp=document.createElement('span');sp.className='dolu';sp.textContent='★';ydiz.appendChild(sp);}
+        for(var i=0;i<(5-d);i++){var sp=document.createElement('span');sp.className='bos';sp.textContent='☆';ydiz.appendChild(sp);}
       }
-    });
+      if(ykac) ykac.textContent=tot+' yanıt';
+      var cv=document.getElementById('c_'+soru.id);
+      if(cv&&tot>0){
+        var sL=['1','2','3','4','5'];
+        var sV=sL.map(function(l){return veri[l]||0;});
+        new Chart(cv.getContext('2d'),{type:'bar',data:{
+          labels:sL.map(function(l){return l+'★';}),
+          datasets:[{data:sV,backgroundColor:['#fde7d1','#fdd4a8','#fdc06a','#f5a623','#EF9F27'],borderRadius:5,borderWidth:0}]
+        },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:function(c){return c.raw+' kişi (%'+Math.round(c.raw/tot*100)+')';}}}},
+          scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}},grid:{color:'rgba(0,0,0,.04)'}},
+                  x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+      }
+
+    } else if(soru.tip==='evet_hayir'){
+      var evet=veri['Evet']||0; var hayir=veri['Hayır']||0; var etop=evet+hayir;
+      var ep=etop>0?Math.round(evet/etop*100):0;
+      var hp=etop>0?Math.round(hayir/etop*100):0;
+      var eEl=document.getElementById('ee_'+soru.id);
+      var hEl=document.getElementById('eh_'+soru.id);
+      var epEl=document.getElementById('ep_'+soru.id);
+      var hpEl=document.getElementById('hp_'+soru.id);
+      var bar=document.getElementById('eb_'+soru.id);
+      if(eEl) eEl.textContent=evet;
+      if(hEl) hEl.textContent=hayir;
+      if(epEl) epEl.textContent='%'+ep;
+      if(hpEl) hpEl.textContent='%'+hp;
+      if(bar) setTimeout(function(){bar.style.width=ep+'%';},120);
+
+    } else if(soru.tip==='secim'||soru.tip==='coklu'){
+      var kap=document.getElementById('yzc_'+soru.id);
+      if(!kap) return;
+      if(!labs.length){kap.innerHTML='<div class="mt-bos">Henüz yanıt yok</div>';return;}
+      var sir=labs.map(function(l,i){return{l:l,n:vals[i]};}).sort(function(a,b){return b.n-a.n;});
+      kap.innerHTML='';
+      sir.forEach(function(item,idx){
+        var pct=tot>0?Math.round(item.n/tot*100):0;
+        var row=document.createElement('div'); row.className='yzc-satir';
+        var clr=CLR[idx%CLR.length];
+        row.innerHTML='<div class="yzc-ust"><span class="yzc-lbl" title="'+item.l+'">'+item.l+'</span>'+
+          '<span class="yzc-n">'+item.n+' · %'+pct+'</span></div>'+
+          '<div class="yzc-bar-kap"><div class="yzc-bar-ic" style="width:0%;background:'+clr+'90" data-w="'+pct+'"></div></div>';
+        kap.appendChild(row);
+      });
+      setTimeout(function(){
+        kap.querySelectorAll('.yzc-bar-ic').forEach(function(el){el.style.width=el.dataset.w+'%';});
+      },100);
+
+    } else if(soru.tip==='metin'){
+      var kap=document.getElementById('mt_'+soru.id);
+      if(!kap) return;
+      var met=labs.filter(function(l){return l.trim().length>0;});
+      if(!met.length){kap.innerHTML='<div class="mt-bos">Henüz yanıt yok</div>';return;}
+      kap.innerHTML='';
+      met.slice(0,20).forEach(function(m){
+        var d=document.createElement('div');d.className='mt-yorum';d.textContent=m;kap.appendChild(d);
+      });
+      if(met.length>20){
+        var d=document.createElement('div');d.className='mt-bos';d.textContent='+ '+(met.length-20)+' yanıt daha...';kap.appendChild(d);
+      }
+    }
   });
 });
+
+/* Toggle */
+function toggle(id){
+  var row=document.getElementById('yk_row_'+id);
+  if(row) row.classList.toggle('acik');
+}
 </script>
 {% endblock %}

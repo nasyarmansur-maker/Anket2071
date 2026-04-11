@@ -160,7 +160,14 @@ def get_anket(aid):
             sorular=c.execute("SELECT * FROM sorular WHERE bolum_id=? ORDER BY sira",(b["id"],)).fetchall()
             bd["sorular"]=[dict(s) for s in sorular]
             for s in bd["sorular"]:
-                s["secenekler"]=json.loads(s["secenekler"] or "[]")
+                raw=json.loads(s["secenekler"] or "[]")
+                normalized=[]
+                for opt in raw:
+                    if isinstance(opt,str):
+                        normalized.append({"metin":opt,"mg":0,"mz":0,"ph":""})
+                    elif isinstance(opt,dict):
+                        normalized.append({"metin":opt.get("metin",opt.get("m","")),"mg":int(opt.get("mg",0)),"mz":int(opt.get("mz",0)),"ph":opt.get("ph","")})
+                s["secenekler"]=normalized
             result["bolumler"].append(bd)
         return result
 
@@ -238,8 +245,15 @@ def anket(anket_id):
         # checkbox alanlarını düzgün topla
         veriler={}
         for key in request.form:
+            if key.endswith('_diger'): continue  # ayrı işlenecek
             vals=request.form.getlist(key)
             veriler[key]=",".join(vals) if len(vals)>1 else vals[0]
+        # Metin girişi olan seçenekler seçildiyse metin değerini birleştir
+        for key in list(veriler.keys()):
+            diger_key = key + '_diger'
+            diger_val = request.form.get(diger_key,'').strip()
+            if diger_val and key in veriler:
+                veriler[key] = veriler[key] + ': ' + diger_val
         with db() as c:
             c.execute("INSERT INTO yanitlar (anket_id,tarih,saat,veriler) VALUES (?,?,?,?)",
                       (anket_id,datetime.now().strftime("%d.%m.%Y"),
@@ -290,6 +304,78 @@ def admin_giris():
             session["admin"]=True; return redirect(url_for("admin_panel"))
         hata="Yanlış şifre!"
     return render_template("admin_giris.html",hata=hata,**gctx())
+
+# ── Yedekleme ────────────────────────────────────────────────────
+@app.route("/admin/yedek/indir/<int:aid>")
+@giris_gerekli
+def yedek_indir(aid):
+    """Tek anketin tüm bölüm ve sorularını JSON olarak indir"""
+    a = get_anket(aid)
+    if not a: return redirect(url_for("admin_panel"))
+    # gorsel alanlarını çıkar (boyut küçülsün), sadece yapı
+    yedek = {
+        "versiyon": 1,
+        "anket_baslik": a["baslik"],
+        "anket_icon":   a["icon"],
+        "anket_rol":    a["rol"],
+        "bolumler": []
+    }
+    for b in a["bolumler"]:
+        bd = {"baslik": b["baslik"], "aktif": b.get("aktif",1), "sorular": []}
+        for s in b["sorular"]:
+            bd["sorular"].append({
+                "metin":      s["metin"],
+                "tip":        s["tip"],
+                "secenekler": s["secenekler"],
+                "zorunlu":    s["zorunlu"],
+                "aktif":      s.get("aktif",1),
+                "kosul_soru_id":  s.get("kosul_soru_id"),
+                "kosul_deger":    s.get("kosul_deger"),
+            })
+        yedek["bolumler"].append(bd)
+    js = json.dumps(yedek, ensure_ascii=False, indent=2)
+    buf = io.BytesIO(js.encode("utf-8"))
+    fn  = f"{a['baslik'][:20].replace(' ','_')}_yedek.json"
+    return send_file(buf, as_attachment=True, download_name=fn, mimetype="application/json")
+
+@app.route("/admin/yedek/yukle/<int:aid>", methods=["POST"])
+@giris_gerekli
+def yedek_yukle(aid):
+    """JSON yedeğinden bölüm ve soruları mevcut ankete ekle (üzerine yazma seçeneği ile)"""
+    f = request.files.get("yedek_dosya")
+    if not f or not f.filename.endswith(".json"):
+        return "Geçersiz dosya. Lütfen .json yedek dosyası seçin.", 400
+    try:
+        veri = json.loads(f.read().decode("utf-8"))
+    except:
+        return "Dosya okunamadı.", 400
+    if veri.get("versiyon") != 1:
+        return "Desteklenmeyen yedek versiyonu.", 400
+    
+    ustune_yaz = request.form.get("ustune_yaz") == "1"
+    
+    with db() as con:
+        if ustune_yaz:
+            for b in con.execute("SELECT id FROM bolumler WHERE anket_id=?",(aid,)).fetchall():
+                con.execute("DELETE FROM sorular WHERE bolum_id=?",(b["id"],))
+            con.execute("DELETE FROM bolumler WHERE anket_id=?",(aid,))
+        
+        # Mevcut en yüksek sıra
+        max_sira = con.execute("SELECT MAX(sira) FROM bolumler WHERE anket_id=?",(aid,)).fetchone()[0] or 0
+        
+        for bi, bolum in enumerate(veri.get("bolumler",[])):
+            bid = con.execute("INSERT INTO bolumler (anket_id,baslik,sira,aktif,gorsel) VALUES (?,?,?,?,'')",
+                (aid, bolum["baslik"], max_sira + bi + 1, bolum.get("aktif",1))).lastrowid
+            for si, soru in enumerate(bolum.get("sorular",[])):
+                con.execute("""INSERT INTO sorular
+                    (bolum_id,metin,tip,secenekler,zorunlu,sira,aktif,gorsel,kosul_soru_id,kosul_deger)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    (bid, soru["metin"], soru["tip"],
+                     json.dumps(soru.get("secenekler",[]), ensure_ascii=False),
+                     soru.get("zorunlu",1), si, soru.get("aktif",1), "",
+                     None, None))  # koşullu soru ID'leri yeni ortamda geçersiz
+        con.commit()
+    return redirect(url_for("admin_anket_duzenle", aid=aid))
 
 @app.route("/admin/cikis")
 def admin_cikis():
@@ -342,8 +428,10 @@ def admin_sonuclar(anket_id):
             q+=" AND tarih=?"; params.append(filtre_tarih)
         q+=" ORDER BY id DESC"
         yanitlar=c.execute(q,params).fetchall()
-        # Tüm tarihler (filtre için)
-        tarihler=c.execute("SELECT DISTINCT tarih FROM yanitlar WHERE anket_id=? ORDER BY tarih DESC",(anket_id,)).fetchall()
+        tarihler=c.execute("SELECT DISTINCT tarih FROM yanitlar WHERE anket_id=? ORDER BY tarih ASC",(anket_id,)).fetchall()
+        # Tüm tarihler için toplam yanıt sayısı (trend grafiği)
+        tarih_sayilari=c.execute("SELECT tarih,COUNT(*) as sayi FROM yanitlar WHERE anket_id=? GROUP BY tarih ORDER BY tarih ASC",(anket_id,)).fetchall()
+        toplam_db=c.execute("SELECT COUNT(*) as n FROM yanitlar WHERE anket_id=?",(anket_id,)).fetchone()["n"]
     liste=[]
     for y in yanitlar:
         v=json.loads(y["veriler"])
@@ -351,23 +439,41 @@ def admin_sonuclar(anket_id):
             if not any(filtre_arama in str(val).lower() for val in v.values()):
                 continue
         liste.append({"id":y["id"],"tarih":y["tarih"],"saat":y["saat"],"veriler":v})
-    # İstatistikler için tüm veriler
+    # Tüm yanıtlar üzerinden istatistikler
     with db() as c:
         tum=c.execute("SELECT veriler FROM yanitlar WHERE anket_id=?",(anket_id,)).fetchall()
-    # Soru bazlı istatistik
     soru_istat={}
+    yildiz_toplamlar={}  # soru_id -> (toplam_puan, sayi)
     for y in tum:
         for k,val in json.loads(y["veriler"]).items():
             if not k.startswith("s_"): continue
             soru_istat.setdefault(k,{})
             for v2 in val.split(","):
                 v2=v2.strip()
-                if v2: soru_istat[k][v2]=soru_istat[k].get(v2,0)+1
+                if v2:
+                    soru_istat[k][v2]=soru_istat[k].get(v2,0)+1
+                    # Yıldız soruları için ortalama hesapla
+                    try:
+                        puan=int(v2)
+                        if 1<=puan<=5:
+                            if k not in yildiz_toplamlar: yildiz_toplamlar[k]=[0,0]
+                            yildiz_toplamlar[k][0]+=puan; yildiz_toplamlar[k][1]+=1
+                    except: pass
+    # Yıldız ortalamaları
+    yildiz_ort={k:round(v[0]/v[1],1) for k,v in yildiz_toplamlar.items() if v[1]>0}
+    # Yanıt tamamlanma oranı (zorunlu olmayan sorular boş bırakılmış olabilir)
+    tum_sorular=[]
+    for b in a["bolumler"]:
+        for s in b["sorular"]: tum_sorular.append(s)
     ctx=gctx()
-    ctx.update({"anket":a,"yanitlar":liste,"soru_istat":json.dumps(soru_istat,ensure_ascii=False),
+    ctx.update({"anket":a,"yanitlar":liste,
+                "soru_istat":json.dumps(soru_istat,ensure_ascii=False),
+                "yildiz_ort":json.dumps(yildiz_ort,ensure_ascii=False),
                 "tarihler":[r["tarih"] for r in tarihler],
+                "tarih_sayilari":json.dumps([{"t":r["tarih"],"n":r["sayi"]} for r in tarih_sayilari],ensure_ascii=False),
                 "filtre_tarih":filtre_tarih,"filtre_arama":filtre_arama,
-                "toplam_yanit":len(liste)})
+                "toplam_yanit":len(liste),"toplam_db":toplam_db,
+                "tum_sorular":tum_sorular})
     return render_template("admin_sonuclar.html",**ctx)
 
 @app.route("/admin/yanit_sil/<int:yid>",methods=["POST"])
@@ -495,12 +601,32 @@ def bolum_sil(bid):
     return redirect(url_for("admin_anket_duzenle",aid=aid))
 
 # ─── Soru CRUD ───────────────────────────────────────────────────
+def _sec_listesi_olustur(form):
+    """Form verilerinden seçenek listesi oluşturur (esnek metin girişi desteği)."""
+    metinler = form.getlist("secenek")
+    mg_flags = form.getlist("secenek_mg")
+    mz_flags = form.getlist("secenek_mz")
+    ph_vals  = form.getlist("secenek_ph")
+    secs = []
+    for i, m in enumerate(metinler):
+        m = m.strip()
+        if not m:
+            continue
+        mg = 1 if i < len(mg_flags) and mg_flags[i] == "1" else 0
+        mz = 1 if i < len(mz_flags) and mz_flags[i] == "1" else 0
+        ph = ph_vals[i].strip() if i < len(ph_vals) else ""
+        if mg == 0 and mz == 0 and not ph:
+            secs.append(m)          # geriye dönük uyumluluk için düz string
+        else:
+            secs.append({"metin": m, "mg": mg, "mz": mz, "ph": ph})
+    return secs
+
 @app.route("/admin/soru/ekle",methods=["POST"])
 @giris_gerekli
 def soru_ekle():
     bid=int(request.form["bolum_id"]); aid=int(request.form["anket_id"])
     tip=request.form.get("tip","yildiz")
-    secs=[s.strip() for s in request.form.getlist("secenek") if s.strip()]
+    secs=_sec_listesi_olustur(request.form)
     kosul_sid=request.form.get("kosul_soru_id") or None
     kosul_deg=request.form.get("kosul_deger") or None
     if kosul_sid: kosul_sid=int(kosul_sid)
@@ -525,7 +651,7 @@ def soru_ekle():
 @giris_gerekli
 def soru_guncelle(sid):
     aid=int(request.form["anket_id"]); tip=request.form.get("tip","yildiz")
-    secs=[s.strip() for s in request.form.getlist("secenek") if s.strip()]
+    secs=_sec_listesi_olustur(request.form)
     kosul_sid=request.form.get("kosul_soru_id") or None
     kosul_deg=request.form.get("kosul_deger") or None
     if kosul_sid: kosul_sid=int(kosul_sid)
