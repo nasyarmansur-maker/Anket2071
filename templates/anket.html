@@ -19,6 +19,8 @@
 .checkbox-opt:hover{background:var(--ana-ac);border-color:var(--ana)}
 .checkbox-opt.isaretli{background:var(--ana-ac);border-color:var(--ana)}
 .checkbox-opt input[type=checkbox]{accent-color:var(--ana);width:18px;height:18px;cursor:pointer;flex-shrink:0}
+.soru-hata{outline:2.5px solid var(--kirmizi)!important;border-radius:var(--r-lg)!important;animation:soru-hata-titreme .4s ease;background:var(--kirmizi-ac,#fef2f2)!important}
+@keyframes soru-hata-titreme{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
 .soru[data-gizli="1"]{display:none!important}
 .secim-opt.isaretli{background:var(--ana-ac);border-color:var(--ana);color:var(--ana)}
 .opt-blok{display:flex;flex-direction:column;gap:0}
@@ -306,50 +308,88 @@ function zorunluGuncelle() {
   document.querySelectorAll('#anketForm input[data-zorunlu="1"], #anketForm textarea[data-zorunlu="1"]').forEach(function(inp){
     var soru = inp.closest('.soru');
     if(!soru || soru.dataset.gizli==='1'){ inp.removeAttribute('required'); return; }
-    if(mevcutMod==='tek'){ inp.setAttribute('required',''); return; }
+    // Tek sayfa modunda native required devre dışı — JS validasyonu ile handle ediyoruz
+    if(mevcutMod==='tek'){ inp.removeAttribute('required'); return; }
     var adimDiv = inp.closest('.bolum-adim');
     if(adimDiv && adimDiv.classList.contains('aktif')) inp.setAttribute('required','');
     else inp.removeAttribute('required');
   });
 }
 
-function _soruHataGoster(soruEl) {
-  soruEl.style.outline='2px solid var(--kirmizi)';
-  soruEl.style.borderRadius='var(--r)';
-  soruEl.scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(function(){soruEl.style.outline='';},2500);
+function _soruHataGoster(soruEl, ilk) {
+  soruEl.classList.add('soru-hata');
+  if(ilk) {
+    // scrollIntoView ile sayfanın iframe içinde olup olmadığını dikkate al
+    try { soruEl.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
+    window.parent && window.parent.postMessage({scrollToEl: true}, '*');
+  }
+  setTimeout(function(){ soruEl.classList.remove('soru-hata'); }, 4000);
 }
 
-// Verilen kapsayıcı içindeki tüm zorunlu alanları doğrular; hata varsa false döner
-function _dogrulaKap(kap) {
-  var hata = false;
-
-  // 1) Zorunlu radio grupları — seçili değil mi?
-  kap.querySelectorAll('.soru:not([data-gizli="1"]) input[data-zorunlu="1"][type=radio]').forEach(function(inp){
-    if(hata) return;
-    var secildi = kap.querySelector('[name="'+inp.name+'"]:checked');
-    if(!secildi){ _soruHataGoster(inp.closest('.soru')); hata = true; }
-  });
-  if(hata) return false;
-
-  // 2) Açık inline metin alanları zorunluysa ve boşsa hata ver
-  kap.querySelectorAll('.soru:not([data-gizli="1"]) .inline-mg-wrap').forEach(function(wrap){
-    if(hata) return;
-    if(wrap.style.display === 'none') return;
-    var txt = wrap.querySelector('input[type=text]');
-    if(txt && txt.required && txt.value.trim() === ''){
-      _soruHataGoster(wrap.closest('.soru'));
-      txt.focus();
-      hata = true;
+// ── Tek sayfa modunda hangi soru elemanları geçerli? ──
+// KRITIK: form içinde hem adım adım (.bolum-adim) hem tek sayfa ([data-tek-bolum])
+// elemanları var. Yanlış olanı taramak kullanıcıya hiçbir şey göstermez.
+function _gecerliSorular() {
+  var sonuc = [];
+  var tumSorular = document.querySelectorAll('#anketForm .soru:not([data-gizli="1"])');
+  tumSorular.forEach(function(soruEl) {
+    if (mevcutMod === 'adim') {
+      // Adım modunda: sadece aktif adımdaki sorular
+      var adim = soruEl.closest('.bolum-adim');
+      if (!adim || !adim.classList.contains('aktif')) return;
+    } else {
+      // Tek sayfa modunda: sadece [data-tek-bolum] içindeki görünür sorular
+      if (!soruEl.closest('[data-tek-bolum]')) return;
     }
+    sonuc.push(soruEl);
   });
-  return !hata;
+  return sonuc;
+}
+
+// Zorunlu alanları doğrular. Hatalıları kırmızı işaretle, ilkine scroll yap.
+// Temiz ise true, hata varsa false döner.
+function _dogrulaKap() {
+  var hataliSorular = [];
+  var gorulmusRadio = {};
+
+  _gecerliSorular().forEach(function(soruEl) {
+    // 1) Radio/yıldız/evet-hayır — zorunluysa en az biri seçili olmalı
+    var radios = soruEl.querySelectorAll('input[data-zorunlu="1"][type=radio]');
+    if (radios.length > 0) {
+      var ad = radios[0].name;
+      if (!gorulmusRadio[ad]) {
+        gorulmusRadio[ad] = true;
+        // Formun tamamında bu name ile checked input var mı?
+        var secildi = document.querySelector('[name="' + ad + '"]:checked');
+        if (!secildi) hataliSorular.push(soruEl);
+      }
+    }
+
+    // 2) Açılan inline metin alanı zorunluysa dolu olmalı
+    soruEl.querySelectorAll('.inline-mg-wrap').forEach(function(wrap) {
+      if (wrap.style.display === 'none') return;
+      var txt = wrap.querySelector('input[type=text]');
+      if (txt && txt.required && txt.value.trim() === '') {
+        if (hataliSorular.indexOf(soruEl) === -1) hataliSorular.push(soruEl);
+      }
+    });
+
+    // 3) Zorunlu textarea
+    soruEl.querySelectorAll('textarea[data-zorunlu="1"]').forEach(function(ta) {
+      if (ta.value.trim() === '') {
+        if (hataliSorular.indexOf(soruEl) === -1) hataliSorular.push(soruEl);
+      }
+    });
+  });
+
+  if (hataliSorular.length === 0) return true;
+  hataliSorular.forEach(function(el, i) { _soruHataGoster(el, i === 0); });
+  return false;
 }
 
 function adimGit(yon) {
   if(yon > 0) {
-    var adimEl = document.querySelector('.bolum-adim.aktif');
-    if(!_dogrulaKap(adimEl)) return;
+    if(!_dogrulaKap()) return;
   }
   var adimlar = document.querySelectorAll('.bolum-adim');
   adimlar[mevcutAdim].classList.remove('aktif');
@@ -467,13 +507,7 @@ function yukseklikGonder() {
 
 // Form submit — her iki modda da metin alanlarını doğrula
 document.getElementById('anketForm').addEventListener('submit', function(e){
-  var kap;
-  if(mevcutMod === 'adim'){
-    kap = document.querySelector('.bolum-adim.aktif');
-  } else {
-    kap = document.getElementById('anketForm');
-  }
-  if(!_dogrulaKap(kap)){ e.preventDefault(); }
+  if(!_dogrulaKap()){ e.preventDefault(); }
 });
 
 // Başlat
