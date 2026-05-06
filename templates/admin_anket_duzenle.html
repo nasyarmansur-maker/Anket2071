@@ -24,6 +24,12 @@
 .btn-aktif-s{background:var(--yesil-ac)!important;color:var(--yesil)!important;border-color:var(--yesil)!important}
 .btn-pasif-s{background:var(--gri-ac)!important;color:var(--gri)!important;border-color:var(--kenar)!important}
 .gorsel-kucuk{width:44px;height:44px;object-fit:cover;border-radius:var(--r);border:1px solid var(--kenar);flex-shrink:0}
+.tasi-modal-bolum{display:flex;flex-direction:column;gap:6px;margin:4px 0}
+.tasi-bolum-btn{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gri-ac);border:1.5px solid var(--kenar);border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:500;color:var(--metin);transition:all .12s;text-align:left;width:100%}
+.tasi-bolum-btn:hover{background:var(--ana-ac);border-color:var(--ana);color:var(--ana)}
+.tasi-bolum-btn.mevcut{opacity:.4;cursor:not-allowed;pointer-events:none}
+.tasi-bolum-sayac{font-size:11px;color:var(--metin-uc);background:var(--yuzey);padding:1px 8px;border-radius:20px;border:1px solid var(--kenar)}
+.tasi-soru-adi{font-size:12px;color:var(--metin-ik);background:var(--ana-ac);border-left:3px solid var(--ana);border-radius:0 var(--r) var(--r) 0;padding:7px 10px;margin-bottom:.75rem;line-height:1.4}
 </style>
 {% endblock %}
 {% block admin_icerik %}
@@ -44,12 +50,26 @@
       <div style="width:75px"><label class="alan-lbl">İkon</label><input type="text" name="icon" value="{{ anket.icon }}"></div>
       <div style="width:120px"><label class="alan-lbl">Rol</label><select name="rol">{% for r,l in [('ogrenci','Öğrenci'),('veli','Veli'),('ogretmen','Öğretmen'),('diger','Diğer')] %}<option value="{{ r }}" {% if anket.rol==r %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div style="width:130px"><label class="alan-lbl">Görünüm</label><select name="gorunum"><option value="varsayilan" {% if (anket.gorunum or 'varsayilan')=='varsayilan' %}selected{% endif %}>🔄 Varsayılan</option><option value="adim" {% if anket.gorunum=='adim' %}selected{% endif %}>📋 Adım Adım</option><option value="tek" {% if anket.gorunum=='tek' %}selected{% endif %}>📄 Tek Sayfa</option></select></div>
+      <div style="width:110px">
+        <label class="alan-lbl">Kart Rengi</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="color" name="kart_renk" id="kartRenkPicker"
+                 value="{{ anket.kart_renk if anket.kart_renk else '#ffffff' }}"
+                 style="width:40px;height:34px;border:1.5px solid var(--kenar);border-radius:var(--r);padding:2px;cursor:pointer;background:none">
+          <button type="button" class="btn btn-gri btn-kucuk" style="font-size:11px;padding:4px 8px"
+                  onclick="document.getElementById('kartRenkPicker').value='#ffffff';document.getElementById('kartRenkPicker').dispatchEvent(new Event('input'))">✕ Sıfırla</button>
+        </div>
+        <div style="font-size:10px;color:var(--metin-uc);margin-top:3px" id="renkOnizleme">
+          {% if anket.kart_renk %}Seçili: {{ anket.kart_renk }}{% else %}Varsayılan renk{% endif %}
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:.75rem">
       <div style="flex:1;min-width:140px"><label class="alan-lbl">Açıklama</label><input type="text" name="aciklama" value="{{ anket.aciklama or '' }}"></div>
       <div><label class="alan-lbl">Başlangıç</label><input type="date" name="baslangic_tarihi" value="{{ anket.baslangic_tarihi or '' }}" style="width:auto"></div>
       <div><label class="alan-lbl">Bitiş</label><input type="date" name="bitis_tarihi" value="{{ anket.bitis_tarihi or '' }}" style="width:auto"></div>
       <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;height:38px"><input type="checkbox" name="aktif" {% if anket.aktif %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--ana)"> Aktif</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;height:38px" title="İşaretliyse aynı cihazdan 2. kez doldurulamaz"><input type="checkbox" name="tek_seferlik" {% if anket.get('tek_seferlik',1) %}checked{% endif %} style="width:18px;height:18px;accent-color:var(--turuncu)"> 🔒 Tek seferlik</label>
       <button type="submit" class="btn btn-ana">💾 Kaydet</button>
     </div>
   </form>
@@ -132,6 +152,13 @@
           data-kosul-deger="{{ soru.kosul_deger or '' }}"
           data-secenekler='{{ soru.secenekler | tojson if soru.secenekler else "[]" }}'
         >✏️ Düzenle</button>
+        <!-- Taşı -->
+        <button class="btn btn-gri btn-kucuk" title="Farklı bölüme taşı"
+          data-sid="{{ soru.id }}"
+          data-metin="{{ soru.metin | truncate(60,true) | e }}"
+          data-bid="{{ bolum.id }}"
+          data-aid="{{ anket.id }}"
+          onclick="tasiModalAc(this)">↕ Taşı</button>
         <!-- Sil -->
         <form method="POST" action="/admin/soru/{{ soru.id }}/sil" onsubmit="return confirm('Soruyu silmek istediğinizden emin misiniz?')"><input type="hidden" name="anket_id" value="{{ anket.id }}"><button type="submit" class="btn btn-tehlike btn-kucuk">✕</button></form>
       </div>
@@ -468,5 +495,71 @@ function kosulSecenekDoldur(p,secilenDeger){
 }
 
 tipDegis('se'); tipDegis('sd');
+
+/* Renk önizleme */
+var rp = document.getElementById('kartRenkPicker');
+var ro = document.getElementById('renkOnizleme');
+if(rp && ro){
+  rp.addEventListener('input', function(){
+    var v = this.value;
+    if(v === '#ffffff' || v === '#FFFFFF'){
+      ro.textContent = 'Varsayılan renk';
+    } else {
+      ro.textContent = 'Seçili: ' + v;
+      ro.style.color = v;
+    }
+  });
+}
+
+/* ─── Bölümler arası soru taşıma ─── */
+var BOLUMLER_JSON = {{ anket.bolumler | tojson }};
+
+function tasiModalAc(btn) {
+  var sid = parseInt(btn.dataset.sid);
+  var soruMetin = btn.dataset.metin;
+  var mevcutBid = parseInt(btn.dataset.bid);
+  var anketId = parseInt(btn.dataset.aid);
+  document.getElementById('tasiSoruId').value = sid;
+  document.getElementById('tasiAnketId').value = anketId;
+  document.getElementById('tasiMevcutBid').value = mevcutBid;
+  document.getElementById('tasiSoruAdi').textContent = soruMetin;
+  // Bölüm listesini doldur
+  var liste = document.getElementById('tasiBolumListe');
+  liste.innerHTML = '';
+  BOLUMLER_JSON.forEach(function(b) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tasi-bolum-btn' + (b.id === mevcutBid ? ' mevcut' : '');
+    btn.innerHTML = '<span>' + b.baslik + (b.id === mevcutBid ? ' <em style="font-size:11px;opacity:.6">(mevcut)</em>' : '') + '</span>' +
+      '<span class="tasi-bolum-sayac">' + (b.sorular ? b.sorular.length : 0) + ' soru</span>';
+    if (b.id !== mevcutBid) {
+      btn.onclick = function() {
+        document.getElementById('tasiHedefBid').value = b.id;
+        document.getElementById('tasiForm').action = '/admin/soru/' + sid + '/bolum_degistir';
+        document.getElementById('tasiForm').submit();
+      };
+    }
+    liste.appendChild(btn);
+  });
+  modalAc('tasiModal');
+}
 </script>
+
+<!-- ── TAŞI MODAL ── -->
+<div class="modal-arka" id="tasiModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-baslik">↕ Bölüm Değiştir <button class="modal-kapat" onclick="modalKapat('tasiModal')">✕</button></div>
+    <div class="tasi-soru-adi" id="tasiSoruAdi"></div>
+    <p style="font-size:12px;color:var(--metin-ik);margin-bottom:10px">Soruyu taşımak istediğin bölümü seç:</p>
+    <div class="tasi-modal-bolum" id="tasiBolumListe"></div>
+    <form id="tasiForm" method="POST" action="">
+      <input type="hidden" name="anket_id" id="tasiAnketId">
+      <input type="hidden" name="hedef_bolum_id" id="tasiHedefBid">
+      <input type="hidden" id="tasiSoruId">
+      <input type="hidden" id="tasiMevcutBid">
+    </form>
+    <button class="btn btn-gri btn-kucuk" style="margin-top:12px;width:100%" onclick="modalKapat('tasiModal')">İptal</button>
+  </div>
+</div>
+
 {% endblock %}

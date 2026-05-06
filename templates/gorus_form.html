@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block baslik %}Görüş, Dilek ve Şikayetler{% endblock %}
+{% block ekstra_css %}
+<style>
+.gorus-kap{max-width:520px;margin:0 auto;padding:1.5rem 0}
+.tur-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.5rem}
+.tur-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:1rem;border:2px solid var(--kenar);border-radius:var(--r-lg);cursor:pointer;transition:all .15s;background:var(--yuzey);position:relative}
+.tur-btn input[type=radio]{position:absolute;opacity:0;width:0;height:0}
+.tur-btn .tur-ikon{font-size:32px;line-height:1}
+.tur-btn .tur-lbl{font-size:13px;font-weight:700;color:var(--metin)}
+.tur-btn .tur-acik{font-size:11px;color:var(--metin-ik);text-align:center}
+.tur-btn.secili{border-color:var(--ana);background:var(--ana-ac)}
+.tur-btn.secili .tur-lbl{color:var(--ana)}
+.tur-btn:hover{border-color:var(--ana-orta);background:var(--ana-ac)}
+.gorus-textarea{width:100%;min-height:140px;padding:12px;border:1.5px solid var(--kenar);border-radius:var(--r);font-size:14px;font-family:inherit;resize:vertical;background:var(--yuzey);color:var(--metin);outline:none;box-sizing:border-box}
+.gorus-textarea:focus{border-color:var(--ana);box-shadow:0 0 0 3px var(--ana-ac)}
+.karakter-say{font-size:11px;color:var(--metin-uc);text-align:right;margin-top:3px}
+</style>
+{% endblock %}
+{% block icerik %}
+<div class="kap">
+  <div class="gorus-kap">
+    <div class="form-baslik" style="text-align:center;margin-bottom:.5rem">💬 Görüş, Dilek ve Şikayetler</div>
+    <p style="font-size:13px;color:var(--metin-ik);text-align:center;margin-bottom:1.5rem">
+      Düşüncelerinizi bizimle paylaşın. Tüm bildirimler anonim olarak değerlendirilir.
+    </p>
+
+    <form method="POST" id="gorusForm">
+      <!-- Tür seçimi -->
+      <div class="tur-grid">
+        <label class="tur-btn secili" id="lbl_dilek">
+          <input type="radio" name="tur" value="dilek" checked onchange="turSec('dilek')">
+          <span class="tur-ikon">🌟</span>
+          <span class="tur-lbl">Dilek & Temenni</span>
+          <span class="tur-acik">İsteklerinizi bildirin</span>
+        </label>
+        <label class="tur-btn" id="lbl_gorus">
+          <input type="radio" name="tur" value="gorus" onchange="turSec('gorus')">
+          <span class="tur-ikon">💬</span>
+          <span class="tur-lbl">Görüş & Öneri</span>
+          <span class="tur-acik">Fikirlerinizi paylaşın</span>
+        </label>
+        <label class="tur-btn" id="lbl_sikayet">
+          <input type="radio" name="tur" value="sikayet" onchange="turSec('sikayet')">
+          <span class="tur-ikon">⚠️</span>
+          <span class="tur-lbl">Şikayet</span>
+          <span class="tur-acik">Sorunları bildirin</span>
+        </label>
+        <label class="tur-btn" id="lbl_tebrik">
+          <input type="radio" name="tur" value="tebrik" onchange="turSec('tebrik')">
+          <span class="tur-ikon">👏</span>
+          <span class="tur-lbl">Teşekkür & Tebrik</span>
+          <span class="tur-acik">Takdirinizi bildirin</span>
+        </label>
+      </div>
+
+      <!-- İçerik -->
+      <div style="margin-bottom:1rem">
+        <label style="font-size:13px;font-weight:600;color:var(--metin-ik);margin-bottom:6px;display:block">
+          Mesajınız <span style="color:var(--kirmizi)">*</span>
+        </label>
+        <textarea class="gorus-textarea" name="icerik" id="icerik"
+                  placeholder="Düşüncelerinizi buraya yazın..." maxlength="1000"
+                  oninput="sayim()" required></textarea>
+        <div class="karakter-say"><span id="sayac">0</span> / 1000</div>
+      </div>
+
+      <button type="submit" class="btn btn-ana btn-tam" style="padding:13px;font-size:15px">
+        ✉️ Gönder
+      </button>
+      <a href="/" class="btn btn-gri btn-tam" style="padding:13px;font-size:15px;margin-top:8px;display:block;text-align:center">
+        ← Geri Dön
+      </a>
+    </form>
+  </div>
+</div>
+<script>
+function turSec(tur) {
+  ['dilek','gorus','sikayet','tebrik'].forEach(function(t){
+    document.getElementById('lbl_'+t).classList.toggle('secili', t===tur);
+  });
+  var placeholders = {
+    'dilek': 'Okulumuzdan ne gibi istekleriniz var?',
+    'gorus': 'Görüş ve önerilerinizi paylaşın...',
+    'sikayet': 'Şikayetinizi açıklayın...',
+    'tebrik': 'Teşekkür veya tebrik mesajınızı yazın...'
+  };
+  document.getElementById('icerik').placeholder = placeholders[tur] || 'Mesajınızı yazın...';
+}
+function sayim(){
+  document.getElementById('sayac').textContent = document.getElementById('icerik').value.length;
+}
+</script>
+{% endblock %}

@@ -27,10 +27,16 @@
   var kap = document.getElementById('anket-kap') || document.body;
   kap.appendChild(frame);
 
-  // Yükseklik mesajını dinle
+  // Mesajları dinle
   window.addEventListener('message', function(e) {
     if (e.data && e.data.iframeHeight) {
       frame.style.height = e.data.iframeHeight + 'px';
+    }
+    // Adım geçişinde iframe'in üstüne kaydır
+    if (e.data && e.data.anketScrollTop) {
+      var rect = frame.getBoundingClientRect();
+      var scrollHedef = rect.top + window.pageYOffset - 16;
+      window.scrollTo({top: scrollHedef, behavior: 'smooth'});
     }
   });
 })();

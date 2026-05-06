@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, make_response
 import sqlite3, json, os, io, base64, smtplib, qrcode
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -29,7 +29,17 @@ def db_init():
             baslangic_tarihi TEXT DEFAULT NULL,
             bitis_tarihi TEXT DEFAULT NULL,
             aciklama TEXT DEFAULT '',
-            gorunum TEXT DEFAULT 'varsayilan'
+            gorunum TEXT DEFAULT 'varsayilan',
+            kart_renk TEXT DEFAULT '',
+            tek_seferlik INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS gorusler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tur TEXT NOT NULL DEFAULT 'dilek',
+            icerik TEXT NOT NULL,
+            tarih TEXT NOT NULL,
+            saat TEXT NOT NULL,
+            okundu INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS bolumler (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,6 +77,8 @@ def db_init():
             "smtp_pass": "",
             "bildirim_email": "",
             "bildirim_aktif": "0",
+            "kilit_gorsel": "",
+            "saat_dilimi_offset": "3",
             "anket_varsayilan_gorunum": "adim",
             "anket_gorunum_secim_goster": "1",
             "hero_baslik": "",
@@ -145,6 +157,14 @@ def ayar(k, v=""):
         r=c.execute("SELECT deger FROM ayarlar WHERE anahtar=?",(k,)).fetchone()
     return r["deger"] if r else v
 
+def simdi():
+    """Ayardaki UTC offset'e göre şimdiki zamanı döndürür."""
+    try:
+        offset = int(ayar("saat_dilimi_offset", "3"))
+    except Exception:
+        offset = 3
+    return datetime.now(timezone(timedelta(hours=offset)))
+
 def ayar_set(k,v):
     with db() as c:
         c.execute("INSERT OR REPLACE INTO ayarlar VALUES (?,?)",(k,v)); c.commit()
@@ -172,7 +192,7 @@ def get_anket(aid):
         return result
 
 def anket_aktif_mi(a):
-    bugun = datetime.now().strftime("%Y-%m-%d")
+    bugun = simdi().strftime("%Y-%m-%d")
     if a.get("baslangic_tarihi") and bugun < a["baslangic_tarihi"]:
         return False, "Anket henüz başlamadı."
     if a.get("bitis_tarihi") and bugun > a["bitis_tarihi"]:
@@ -210,7 +230,7 @@ def email_gonder(konu, icerik):
 def anasayfa():
     with db() as c:
         anketler=c.execute("SELECT * FROM anketler WHERE aktif=1 ORDER BY sira").fetchall()
-    bugun=datetime.now().strftime("%Y-%m-%d")
+    bugun=simdi().strftime("%Y-%m-%d")
     liste=[]
     for a in anketler:
         ad=dict(a)
@@ -239,7 +259,23 @@ def anket(anket_id):
     if not aktif:
         ctx=gctx(); ctx["mesaj"]=msg; ctx["anket"]=a
         return render_template("anket_kapali.html",**ctx)
+    # ── Tekrar doldurma kontrolü (anket bazında tek_seferlik) ──
+    cookie_key = f"dolduruldu_{anket_id}"
+    session_key = f"yanit_{anket_id}"
+    tek_seferlik = a.get("tek_seferlik", 1)
+    if tek_seferlik:
+        zaten_doldurdu = (request.cookies.get(cookie_key) == "1" or
+                          session.get(session_key) == 1)
+        if zaten_doldurdu:
+            kilit_gorsel = ayar("kilit_gorsel", "")
+            ctx=gctx(); ctx["anket"]=a; ctx["kilit_gorsel"]=kilit_gorsel
+            return render_template("zaten_dolduruldu.html",**ctx)
     if request.method=="POST":
+        # Gizli alan ile localStorage kontrolü — JS kayıtlıysa bunu gönderir
+        ls_flag = request.form.get("_ls_dolduruldu","")
+        if ls_flag == "1":
+            ctx=gctx(); ctx["anket"]=a
+            return render_template("zaten_dolduruldu.html",**ctx)
         v={k:request.form.getlist(k) if k.endswith("[]") else val
            for k,val in request.form.items()}
         # checkbox alanlarını düzgün topla
@@ -256,17 +292,24 @@ def anket(anket_id):
                 veriler[key] = veriler[key] + ': ' + diger_val
         with db() as c:
             c.execute("INSERT INTO yanitlar (anket_id,tarih,saat,veriler) VALUES (?,?,?,?)",
-                      (anket_id,datetime.now().strftime("%d.%m.%Y"),
-                       datetime.now().strftime("%H:%M"),
+                      (anket_id,simdi().strftime("%d.%m.%Y"),
+                       simdi().strftime("%H:%M"),
                        json.dumps(veriler,ensure_ascii=False)))
             c.commit()
         # E-posta bildirimi
         email_gonder(
             f"📋 Yeni Anket Yanıtı — {a['baslik']}",
             f"<h3>{a['icon']} {a['baslik']}</h3><p>Yeni bir yanıt alındı.</p>"
-            f"<p><b>Tarih:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>"
+            f"<p><b>Tarih:</b> {simdi().strftime('%d.%m.%Y %H:%M')}</p>"
         )
-        return redirect(url_for("tesekkur",anket_id=anket_id))
+        # Cookie + session kaydet (sadece tek_seferlik anketlerde)
+        resp = make_response(redirect(url_for("tesekkur", anket_id=anket_id)))
+        if tek_seferlik:
+            session[session_key] = 1
+            resp.set_cookie(cookie_key, "1",
+                            max_age=60*60*24*365,  # 1 yıl
+                            httponly=True, samesite="Lax")
+        return resp
     # Sadece aktif bölüm ve soruları filtrele
     a["bolumler"] = [b for b in a["bolumler"] if b.get("aktif",1)!=0]
     for b in a["bolumler"]:
@@ -286,7 +329,9 @@ def anket(anket_id):
     ctx["anket_gorunum"] = efektif
     ctx["gorunum_secim_goster"] = ayar("anket_gorunum_secim_goster","1") == "1"
     ctx["anket_varsayilan"] = varsayilan
+    ctx["tek_seferlik"] = a.get("tek_seferlik", 1)
     return render_template("anket.html",**ctx)
+
 
 @app.route("/tesekkur/<int:anket_id>")
 def tesekkur(anket_id):
@@ -524,6 +569,266 @@ def yanit_sil(yid):
         c.execute("DELETE FROM yanitlar WHERE id=?",(yid,)); c.commit()
     return redirect(request.referrer or url_for("admin_panel"))
 
+
+@app.route("/admin/cookie_sifirla/<int:anket_id>", methods=["POST"])
+@giris_gerekli
+def admin_cookie_sifirla(anket_id):
+    """Cookie + session siler; localStorage temizlenmesi için ankete ?sifirla=1 ile yönlendirir."""
+    cookie_key = f"dolduruldu_{anket_id}"
+    session_key = f"yanit_{anket_id}"
+    session.pop(session_key, None)
+    anket_url = url_for("anket", anket_id=anket_id) + "?sifirla=1"
+    resp = make_response(redirect(anket_url))
+    resp.delete_cookie(cookie_key)
+    return resp
+
+
+# ─── Tam Yedekleme (Tüm Ayarlar + Tüm Anketler) ─────────────────
+@app.route("/admin/tam_yedek/indir")
+@giris_gerekli
+def tam_yedek_indir():
+    """Tüm ayarları ve anket yapılarını tek JSON dosyasında indirir."""
+    with db() as c:
+        ayarlar_raw = c.execute("SELECT anahtar, deger FROM ayarlar").fetchall()
+        anketler_raw = c.execute("SELECT * FROM anketler ORDER BY sira").fetchall()
+    ayarlar_dict = {r["anahtar"]: r["deger"] for r in ayarlar_raw}
+    # Hassas bilgileri yedekten çıkar
+    hassas = {"admin_sifre","smtp_pass"}
+    ayarlar_temiz = {k:v for k,v in ayarlar_dict.items() if k not in hassas}
+    anket_listesi = []
+    for a in anketler_raw:
+        anket_obj = dict(a)
+        with db() as c:
+            bolumler_raw = c.execute("SELECT * FROM bolumler WHERE anket_id=? ORDER BY sira",(a["id"],)).fetchall()
+        bolum_listesi = []
+        for b in bolumler_raw:
+            with db() as c:
+                sorular_raw = c.execute("SELECT * FROM sorular WHERE bolum_id=? ORDER BY sira",(b["id"],)).fetchall()
+            bolum_listesi.append({
+                "baslik": b["baslik"], "sira": b["sira"], "aktif": b["aktif"],
+                "gorsel": b["gorsel"],
+                "sorular": [dict(s) for s in sorular_raw]
+            })
+        anket_obj["bolumler"] = bolum_listesi
+        anket_listesi.append(anket_obj)
+    tam_yedek = {
+        "versiyon": "tam_v1",
+        "tarih": simdi().strftime("%Y-%m-%d %H:%M"),
+        "ayarlar": ayarlar_temiz,
+        "anketler": anket_listesi
+    }
+    js = json.dumps(tam_yedek, ensure_ascii=False, indent=2)
+    buf = io.BytesIO(js.encode("utf-8"))
+    fn = f"tam_yedek_{simdi().strftime('%Y%m%d_%H%M')}.json"
+    return send_file(buf, mimetype="application/json",
+                     download_name=fn, as_attachment=True)
+
+@app.route("/admin/tam_yedek/yukle", methods=["POST"])
+@giris_gerekli
+def tam_yedek_yukle():
+    """Tam yedek dosyasını geri yükler (ayarlar + anket yapıları, yanıtlar korunur)."""
+    f = request.files.get("tam_yedek_dosya")
+    if not f or not f.filename.endswith(".json"):
+        return "Geçersiz dosya.", 400
+    try:
+        veri = json.loads(f.read().decode("utf-8"))
+    except Exception:
+        return "Dosya okunamadı.", 400
+    if veri.get("versiyon") != "tam_v1":
+        return "Bu dosya tam yedek formatında değil.", 400
+    with db() as c:
+        # Ayarları geri yükle (şifre alanlarına dokunma)
+        hassas = {"admin_sifre","smtp_pass"}
+        for k, v in veri.get("ayarlar", {}).items():
+            if k in hassas: continue
+            c.execute("INSERT OR REPLACE INTO ayarlar VALUES (?,?)", (k, v))
+        # Anket yapılarını geri yükle (sadece yoksa ekle — yanıtları bozma)
+        yukle_anketler = request.form.get("yukle_anketler","0") == "1"
+        if yukle_anketler:
+            for anket_obj in veri.get("anketler", []):
+                # Aynı başlıkta anket varsa atla
+                mevcut = c.execute("SELECT id FROM anketler WHERE baslik=?",(anket_obj["baslik"],)).fetchone()
+                if mevcut: continue
+                aid = c.execute(
+                    "INSERT INTO anketler (rol,baslik,icon,aktif,sira,aciklama,gorunum) VALUES (?,?,?,?,?,?,?)",
+                    (anket_obj.get("rol","diger"), anket_obj["baslik"], anket_obj.get("icon","📝"),
+                     anket_obj.get("aktif",1), anket_obj.get("sira",99),
+                     anket_obj.get("aciklama",""), anket_obj.get("gorunum","varsayilan"))
+                ).lastrowid
+                for bi, bolum in enumerate(anket_obj.get("bolumler",[])):
+                    bid = c.execute(
+                        "INSERT INTO bolumler (anket_id,baslik,sira,aktif,gorsel) VALUES (?,?,?,?,?)",
+                        (aid, bolum["baslik"], bolum.get("sira",bi), bolum.get("aktif",1), bolum.get("gorsel",""))
+                    ).lastrowid
+                    for si, soru in enumerate(bolum.get("sorular",[])):
+                        c.execute(
+                            "INSERT INTO sorular (bolum_id,metin,tip,secenekler,zorunlu,sira,aktif,gorsel) VALUES (?,?,?,?,?,?,?,?)",
+                            (bid, soru["metin"], soru["tip"], soru.get("secenekler","[]"),
+                             soru.get("zorunlu",1), soru.get("sira",si), soru.get("aktif",1), soru.get("gorsel",""))
+                        )
+        c.commit()
+    return redirect(url_for("admin_ayarlar") + "?yedek_yuklendi=1")
+
+
+# ─── Kilit Görsel Yükle ──────────────────────────────────────────
+@app.route("/admin/kilit_gorsel_yukle", methods=["POST"])
+@giris_gerekli
+def kilit_gorsel_yukle():
+    f = request.files.get("kilit_gorsel")
+    if f and f.filename:
+        ext = f.filename.rsplit(".", 1)[-1].lower()
+        if ext in {"jpg","jpeg","png","gif","webp","svg"}:
+            data = base64.b64encode(f.read()).decode()
+            gorsel_b64 = f"data:image/{ext};base64,{data}"
+            with db() as c:
+                c.execute("INSERT OR REPLACE INTO ayarlar VALUES (?,?)", ("kilit_gorsel", gorsel_b64))
+                c.commit()
+    return redirect(url_for("admin_ayarlar") + "#kilit-gorsel")
+
+@app.route("/admin/kilit_gorsel_sil", methods=["POST"])
+@giris_gerekli
+def kilit_gorsel_sil():
+    with db() as c:
+        c.execute("INSERT OR REPLACE INTO ayarlar VALUES (?,?)", ("kilit_gorsel", ""))
+        c.commit()
+    return redirect(url_for("admin_ayarlar") + "#kilit-gorsel")
+
+# ─── Görüş / Dilek / Temenni / Şikayet ──────────────────────────
+@app.route("/gorus", methods=["GET","POST"])
+def gorus_form():
+    if request.method == "POST":
+        tur = request.form.get("tur","dilek")
+        icerik = request.form.get("icerik","").strip()
+        if icerik:
+            with db() as c:
+                c.execute("INSERT INTO gorusler (tur,icerik,tarih,saat) VALUES (?,?,?,?)",
+                          (tur, icerik, simdi().strftime("%d.%m.%Y"), simdi().strftime("%H:%M")))
+                c.commit()
+        return redirect(url_for("gorus_tesekkur"))
+    ctx = gctx()
+    return render_template("gorus_form.html", **ctx)
+
+@app.route("/gorus/tesekkur")
+def gorus_tesekkur():
+    ctx = gctx()
+    return render_template("gorus_tesekkur.html", **ctx)
+
+@app.route("/admin/gorusler")
+@giris_gerekli
+def admin_gorusler():
+    filtre_tur = request.args.get("tur","")
+    filtre_okundu = request.args.get("okundu","")
+    with db() as c:
+        q = "SELECT * FROM gorusler WHERE 1=1"
+        params = []
+        if filtre_tur:
+            q += " AND tur=?"; params.append(filtre_tur)
+        if filtre_okundu == "0":
+            q += " AND okundu=0"
+        elif filtre_okundu == "1":
+            q += " AND okundu=1"
+        q += " ORDER BY id DESC"
+        liste = [dict(r) for r in c.execute(q, params).fetchall()]
+        sayilar = {r["tur"]:r["n"] for r in c.execute(
+            "SELECT tur, COUNT(*) as n FROM gorusler GROUP BY tur").fetchall()}
+        okunmamis = c.execute("SELECT COUNT(*) FROM gorusler WHERE okundu=0").fetchone()[0]
+    ctx = gctx()
+    ctx.update({"liste":liste,"sayilar":sayilar,"okunmamis":okunmamis,
+                "filtre_tur":filtre_tur,"filtre_okundu":filtre_okundu})
+    return render_template("admin_gorusler.html", **ctx)
+
+@app.route("/admin/gorus/<int:gid>/okundu", methods=["POST"])
+@giris_gerekli
+def gorus_okundu(gid):
+    with db() as c:
+        c.execute("UPDATE gorusler SET okundu=1 WHERE id=?", (gid,))
+        c.commit()
+    return redirect(request.referrer or url_for("admin_gorusler"))
+
+@app.route("/admin/gorus/<int:gid>/sil", methods=["POST"])
+@giris_gerekli
+def gorus_sil(gid):
+    with db() as c:
+        c.execute("DELETE FROM gorusler WHERE id=?", (gid,))
+        c.commit()
+    return redirect(request.referrer or url_for("admin_gorusler"))
+
+@app.route("/admin/gorusler/tumunu_okundu", methods=["POST"])
+@giris_gerekli
+def gorusler_tumunu_okundu():
+    with db() as c:
+        c.execute("UPDATE gorusler SET okundu=1")
+        c.commit()
+    return redirect(url_for("admin_gorusler"))
+
+# ─── Tam Veri Yedekleme (Yanıtlar dahil) ─────────────────────────
+@app.route("/admin/tam_veri_yedek/indir")
+@giris_gerekli
+def tam_veri_yedek_indir():
+    """Tüm yanıtlar, görüşler ve anket yapısını tek JSON'a yedekler."""
+    with db() as c:
+        yanitlar = [dict(r) for r in c.execute("SELECT * FROM yanitlar ORDER BY id").fetchall()]
+        gorusler = [dict(r) for r in c.execute("SELECT * FROM gorusler ORDER BY id").fetchall()]
+        anketler_raw = c.execute("SELECT * FROM anketler ORDER BY sira").fetchall()
+    anket_listesi = []
+    for a in anketler_raw:
+        aobj = dict(a)
+        with db() as c:
+            bolumler = c.execute("SELECT * FROM bolumler WHERE anket_id=? ORDER BY sira",(a["id"],)).fetchall()
+        aobj["bolumler"] = []
+        for b in bolumler:
+            bobj = dict(b)
+            with db() as c:
+                sorular = c.execute("SELECT * FROM sorular WHERE bolum_id=? ORDER BY sira",(b["id"],)).fetchall()
+            bobj["sorular"] = [dict(s) for s in sorular]
+            aobj["bolumler"].append(bobj)
+        anket_listesi.append(aobj)
+    veri = {
+        "versiyon": "tam_veri_v1",
+        "tarih": simdi().strftime("%Y-%m-%d %H:%M"),
+        "anketler": anket_listesi,
+        "yanitlar": yanitlar,
+        "gorusler": gorusler,
+    }
+    js = json.dumps(veri, ensure_ascii=False, indent=2)
+    buf = io.BytesIO(js.encode("utf-8"))
+    fn = f"tam_veri_yedek_{simdi().strftime('%Y%m%d_%H%M')}.json"
+    return send_file(buf, mimetype="application/json", download_name=fn, as_attachment=True)
+
+@app.route("/admin/tam_veri_yedek/yukle", methods=["POST"])
+@giris_gerekli
+def tam_veri_yedek_yukle():
+    """Tam veri yedeğini geri yükler — mevcut verilere ekler, üstüne yazmaz."""
+    f = request.files.get("veri_yedek_dosya")
+    if not f or not f.filename.endswith(".json"):
+        return "Geçersiz dosya.", 400
+    try:
+        veri = json.loads(f.read().decode("utf-8"))
+    except Exception:
+        return "Dosya okunamadı.", 400
+    if veri.get("versiyon") != "tam_veri_v1":
+        return "Bu dosya tam veri yedek formatında değil.", 400
+    yuklenen = {"yanitlar":0,"gorusler":0}
+    with db() as c:
+        # Yanıtları yükle — id çakışmasını önle
+        max_yanit_id = c.execute("SELECT COALESCE(MAX(id),0) FROM yanitlar").fetchone()[0]
+        for y in veri.get("yanitlar",[]):
+            if c.execute("SELECT id FROM yanitlar WHERE id=?", (y["id"],)).fetchone():
+                continue  # zaten var
+            c.execute("INSERT INTO yanitlar (id,anket_id,tarih,saat,veriler) VALUES (?,?,?,?,?)",
+                      (y["id"],y["anket_id"],y["tarih"],y["saat"],y["veriler"]))
+            yuklenen["yanitlar"] += 1
+        # Görüşleri yükle
+        for g in veri.get("gorusler",[]):
+            if c.execute("SELECT id FROM gorusler WHERE id=?", (g["id"],)).fetchone():
+                continue
+            c.execute("INSERT INTO gorusler (id,tur,icerik,tarih,saat,okundu) VALUES (?,?,?,?,?,?)",
+                      (g["id"],g["tur"],g["icerik"],g["tarih"],g["saat"],g.get("okundu",0)))
+            yuklenen["gorusler"] += 1
+        c.commit()
+    flash_msg = f"Yüklendi: {yuklenen['yanitlar']} yanıt, {yuklenen['gorusler']} görüş."
+    return redirect(url_for("admin_ayarlar") + "?veri_yuklendi=1&msg=" + flash_msg)
+
 # ─── QR Kod ──────────────────────────────────────────────────────
 @app.route("/admin/qr/<int:anket_id>")
 @giris_gerekli
@@ -576,18 +881,34 @@ def admin_anket_duzenle(aid):
     ctx=gctx(); ctx["anket"]=a; ctx["tum_sorular"]=tum_sorular
     return render_template("admin_anket_duzenle.html",**ctx)
 
+
+@app.route("/admin/anket/<int:aid>/hizli_guncelle", methods=["POST"])
+@giris_gerekli
+def anket_hizli_guncelle(aid):
+    """İkon ve kart rengini hızlıca günceller."""
+    icon = request.form.get("icon", "").strip()
+    kart_renk = request.form.get("kart_renk", "").strip()
+    with db() as c:
+        if icon:
+            c.execute("UPDATE anketler SET icon=? WHERE id=?", (icon, aid))
+        c.execute("UPDATE anketler SET kart_renk=? WHERE id=?", (kart_renk, aid))
+        c.commit()
+    return redirect(url_for("admin_anketler"))
+
 @app.route("/admin/anket/<int:aid>/guncelle",methods=["POST"])
 @giris_gerekli
 def anket_guncelle(aid):
     with db() as c:
         c.execute("""UPDATE anketler SET baslik=?,icon=?,rol=?,aktif=?,
-                     aciklama=?,baslangic_tarihi=?,bitis_tarihi=?,gorunum=? WHERE id=?""",
+                     aciklama=?,baslangic_tarihi=?,bitis_tarihi=?,gorunum=?,kart_renk=?,tek_seferlik=? WHERE id=?""",
                   (request.form.get("baslik"),request.form.get("icon"),
                    request.form.get("rol"),1 if request.form.get("aktif") else 0,
                    request.form.get("aciklama",""),
                    request.form.get("baslangic_tarihi") or None,
                    request.form.get("bitis_tarihi") or None,
                    request.form.get("gorunum","varsayilan"),
+                   request.form.get("kart_renk",""),
+                   1 if request.form.get("tek_seferlik") else 0,
                    aid)); c.commit()
     return redirect(url_for("admin_anket_duzenle",aid=aid))
 
@@ -777,6 +1098,26 @@ def soru_toggle_aktif(sid):
             c.commit()
     return redirect(url_for("admin_anket_duzenle",aid=aid))
 
+
+@app.route("/admin/soru/<int:sid>/bolum_degistir", methods=["POST"])
+@giris_gerekli
+def soru_bolum_degistir(sid):
+    """Soruyu farklı bir bölüme taşır."""
+    aid = int(request.form["anket_id"])
+    hedef_bid = int(request.form["hedef_bolum_id"])
+    with db() as c:
+        # Hedef bölümde en sona koy
+        max_sira = c.execute(
+            "SELECT COALESCE(MAX(sira),0) as ms FROM sorular WHERE bolum_id=?",
+            (hedef_bid,)
+        ).fetchone()["ms"]
+        c.execute(
+            "UPDATE sorular SET bolum_id=?, sira=? WHERE id=?",
+            (hedef_bid, max_sira + 1, sid)
+        )
+        c.commit()
+    return redirect(url_for("admin_anket_duzenle", aid=aid))
+
 # ─── Ayarlar ─────────────────────────────────────────────────────
 @app.route("/admin/ayarlar",methods=["GET","POST"])
 @giris_gerekli
@@ -786,7 +1127,7 @@ def admin_ayarlar():
         for k in ["okul_adi","okul_sehir","admin_sifre","tema","anasayfa_gorunum",
                   "hosgeldin_metin","alt_yazi","smtp_host","smtp_port",
                   "smtp_user","smtp_pass","bildirim_email",
-                  "anket_varsayilan_gorunum",
+                  "anket_varsayilan_gorunum","saat_dilimi_offset",
                   "hero_baslik","hero_alt_baslik",
                   "hero_gorsel_genislik","hero_gorsel_sekil","hero_baslik_boyut","hero_alt_boyut"]:
             v=request.form.get(k)
@@ -827,7 +1168,9 @@ def admin_ayarlar():
                 "smtp_host":ayar("smtp_host"),"smtp_port":ayar("smtp_port","587"),
                 "smtp_user":ayar("smtp_user"),"smtp_pass":ayar("smtp_pass"),
                 "bildirim_email":ayar("bildirim_email"),
-                "bildirim_aktif":ayar("bildirim_aktif","0")})
+                "bildirim_aktif":ayar("bildirim_aktif","0"),
+                "saat_dilimi_offset":ayar("saat_dilimi_offset","3"),
+                "kilit_gorsel":ayar("kilit_gorsel","")})
     return render_template("admin_ayarlar.html",**ctx)
 
 # ─── Excel ───────────────────────────────────────────────────────
@@ -860,7 +1203,7 @@ def excel_indir(anket_id):
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width=22
     buf=io.BytesIO(); wb.save(buf); buf.seek(0)
-    fn=f"{a['baslik'][:20]}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    fn=f"{a['baslik'][:20]}_{simdi().strftime('%Y%m%d')}.xlsx"
     return send_file(buf,as_attachment=True,download_name=fn,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 

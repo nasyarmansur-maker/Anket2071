@@ -48,10 +48,11 @@
   <div class="rol-liste">
     {% for a in anketler %}
     {% if a.simdiki_aktif %}
-    <a href="/anket/{{ a.id }}" class="rol-kart" style="margin-bottom:10px">
+    <a href="/anket/{{ a.id }}" class="rol-kart"
+       style="margin-bottom:10px{% if a.kart_renk and a.kart_renk != '#ffffff' %};background:{{ a.kart_renk }};border-color:{{ a.kart_renk }}{% endif %}">
       <div class="icon">{{ a.icon }}</div>
-      <div class="ic"><h2>{{ a.baslik }}</h2><p>Ankete katılmak için tıklayın</p></div>
-      <span class="ok">Başla →</span>
+      <div class="ic"><h2>{{ a.baslik }}</h2><p {% if a.kart_renk and a.kart_renk != '#ffffff' %}style="color:rgba(255,255,255,.75)"{% endif %}>Ankete katılmak için tıklayın</p></div>
+      <span class="ok" {% if a.kart_renk and a.kart_renk != '#ffffff' %}style="background:rgba(255,255,255,.2);color:#fff"{% endif %}>Başla →</span>
     </a>
     {% else %}
     <div class="rol-kart" style="margin-bottom:10px;opacity:.5;cursor:not-allowed">
@@ -67,7 +68,7 @@
     {% for a in anketler %}
     {% if a.simdiki_aktif %}
     <a href="/anket/{{ a.id }}" class="btn btn-ana btn-tam"
-       style="margin-bottom:10px;padding:14px;font-size:16px">
+       style="margin-bottom:10px;padding:14px;font-size:16px{% if a.kart_renk and a.kart_renk != '#ffffff' %};background:{{ a.kart_renk }};border-color:{{ a.kart_renk }}{% endif %}">
       {{ a.icon }} {{ a.baslik }}
     </a>
     {% else %}
@@ -82,11 +83,14 @@
   <div class="rol-grid">
     {% for a in anketler %}
     {% if a.simdiki_aktif %}
-    <a href="/anket/{{ a.id }}" class="rol-kart">
+    <a href="/anket/{{ a.id }}" class="rol-kart"
+       {% if a.kart_renk and a.kart_renk != '#ffffff' %}
+       style="background:{{ a.kart_renk }};border-color:{{ a.kart_renk }};color:{% if a.kart_renk_koyu %}#fff{% else %}var(--metin){% endif %}"
+       {% endif %}>
       <span class="icon">{{ a.icon }}</span>
       <h2>{{ a.baslik }}</h2>
-      <p>Ankete katılmak için tıklayın</p>
-      <span class="ok">Başla →</span>
+      <p {% if a.kart_renk and a.kart_renk != '#ffffff' %}style="color:rgba(255,255,255,.75)"{% endif %}>Ankete katılmak için tıklayın</p>
+      <span class="ok" {% if a.kart_renk and a.kart_renk != '#ffffff' %}style="background:rgba(255,255,255,.2);color:#fff"{% endif %}>Başla →</span>
     </a>
     {% else %}
     <div class="rol-kart" style="opacity:.5;cursor:not-allowed">
@@ -106,5 +110,14 @@
   <p style="text-align:center;font-size:12px;color:var(--metin-uc);margin-top:1.5rem">
     {{ alt_yazi }}
   </p>
+
+  <!-- Görüş / Dilek / Şikayet butonu -->
+  <div style="text-align:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--kenar)">
+    <a href="/gorus" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border:1.5px solid var(--kenar);border-radius:var(--r-lg);background:var(--yuzey);color:var(--metin-ik);font-size:13px;font-weight:600;text-decoration:none;transition:all .15s;box-shadow:var(--golge)" 
+       onmouseover="this.style.borderColor='var(--ana)';this.style.color='var(--ana)';this.style.background='var(--ana-ac)'"
+       onmouseout="this.style.borderColor='var(--kenar)';this.style.color='var(--metin-ik)';this.style.background='var(--yuzey)'">
+      💬 Görüş, Dilek & Şikayet
+    </a>
+  </div>
 </div>
 {% endblock %}

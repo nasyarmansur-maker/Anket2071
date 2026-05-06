@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block baslik %}Zaten Dolduruldu{% endblock %}
+{% block icerik %}
+<div class="kap" style="text-align:center;padding-top:3rem;max-width:500px">
+  {% if kilit_gorsel %}
+  <img src="{{ kilit_gorsel }}" style="max-width:180px;max-height:160px;object-fit:contain;margin-bottom:1rem;border-radius:var(--r-lg)">
+  {% else %}
+  <div style="font-size:64px;margin-bottom:1rem">🔒</div>
+  {% endif %}
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:.5rem">Bu anketi zaten doldurdunuz</h1>
+  <p style="font-size:15px;color:var(--metin-ik);margin-bottom:.75rem;line-height:1.6">
+    <strong>{{ anket.icon }} {{ anket.baslik }}</strong><br>
+    Bu cihazdan daha önce yanıt gönderilmiş.<br>
+    Her cihazdan yalnızca bir kez doldurulabilir.
+  </p>
+  <div style="background:var(--gri-ac);border-radius:var(--r-lg);padding:1rem;margin-bottom:1.5rem;font-size:13px;color:var(--metin-ik)">
+    💡 Farklı bir cihazdan doldurmak isterseniz o cihazın tarayıcısını kullanabilirsiniz.
+  </div>
+  <a href="/" class="btn btn-ana">← Ana Sayfaya Dön</a>
+</div>
+{% endblock %}

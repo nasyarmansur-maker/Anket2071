@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block baslik %}Teşekkürler{% endblock %}
+{% block icerik %}
+<div class="kap" style="text-align:center;padding:3rem 1rem">
+  <div style="font-size:72px;margin-bottom:1.25rem">✉️</div>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:.75rem;color:var(--metin)">Mesajınız İletildi!</h2>
+  <p style="font-size:14px;color:var(--metin-ik);margin-bottom:2rem;max-width:340px;margin-left:auto;margin-right:auto">
+    Görüş ve önerinizi bizimle paylaştığınız için teşekkür ederiz. En kısa sürede değerlendirileceğini bilmenizi isteriz.
+  </p>
+  <a href="/" class="btn btn-ana" style="padding:12px 28px;font-size:15px">Ana Sayfaya Dön</a>
+  <a href="/gorus" class="btn btn-gri" style="padding:12px 28px;font-size:15px;margin-top:10px;display:block">Yeni Mesaj Gönder</a>
+</div>
+{% endblock %}

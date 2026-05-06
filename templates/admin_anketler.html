@@ -1,6 +1,24 @@
 {% extends "admin_base.html" %}
 {% set aktif_sayfa = "anketler" %}
 {% block baslik %}Anket Yönetimi{% endblock %}
+{% block ekstra_css %}
+<style>
+.hizli-duzenle{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--kenar)}
+.renk-on{width:28px;height:28px;border-radius:6px;border:2px solid var(--kenar);cursor:pointer;flex-shrink:0}
+.ikon-inp{width:52px;font-size:18px;text-align:center;padding:4px 6px;border:1.5px solid var(--kenar);border-radius:var(--r);background:var(--yuzey)}
+.ikon-inp:focus,.renk-on:focus{outline:none;border-color:var(--ana);box-shadow:0 0 0 3px var(--ana-ac)}
+.emoji-picker-pop{display:none;position:absolute;z-index:999;background:var(--yuzey);border:1.5px solid var(--kenar);border-radius:var(--r-lg);box-shadow:0 8px 32px rgba(0,0,0,.15);padding:10px;width:300px;max-height:320px;overflow-y:auto}
+.emoji-picker-pop.acik{display:block}
+.emoji-kategori{font-size:10px;font-weight:700;color:var(--metin-uc);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px;padding:0 2px}
+.emoji-grid{display:flex;flex-wrap:wrap;gap:2px}
+.emoji-btn{font-size:22px;width:36px;height:36px;border:none;background:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.emoji-btn:hover{background:var(--ana-ac)}
+.ikon-tetik{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;font-size:24px;border:1.5px solid var(--kenar);border-radius:var(--r);cursor:pointer;background:var(--yuzey);transition:all .12s;user-select:none}
+.ikon-tetik:hover{border-color:var(--ana);background:var(--ana-ac)}
+.renk-etiket{font-size:11px;color:var(--metin-uc)}
+.onizleme-kart{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;border:1.5px solid var(--kenar);min-width:80px;transition:all .15s}
+</style>
+{% endblock %}
 {% block admin_icerik %}
 
 <div class="sayfa-baslik">📋 Anket Yönetimi</div>
@@ -34,7 +52,11 @@
 {% for a in anketler %}
 <div class="kart" style="margin-bottom:.75rem">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <span style="font-size:28px">{{ a.icon }}</span>
+    <!-- Önizleme ikonu -->
+    <div class="onizleme-kart" id="oniz_{{ a.id }}"
+         style="background:{{ a.kart_renk if a.kart_renk and a.kart_renk != '#ffffff' else 'var(--gri-ac)' }};border-color:{{ a.kart_renk if a.kart_renk and a.kart_renk != '#ffffff' else 'var(--kenar)' }}">
+      <span id="oniz_kart_ikon_{{ a.id }}" style="font-size:22px">{{ a.icon }}</span>
+    </div>
     <div style="flex:1;min-width:0">
       <div style="font-weight:700;font-size:15px">{{ a.baslik }}</div>
       <div style="font-size:12px;color:var(--metin-ik)">Rol: {{ a.rol }} |
@@ -45,14 +67,125 @@
       <a href="/admin/anket/{{ a.id }}/duzenle" class="btn btn-outline btn-kucuk">✏️ Düzenle</a>
       <a href="/admin/sonuclar/{{ a.id }}" class="btn btn-gri btn-kucuk">📊 Sonuçlar</a>
       <a href="/admin/excel/{{ a.id }}" class="btn btn-gri btn-kucuk">⬇ Excel</a>
+      <form method="POST" action="/admin/cookie_sifirla/{{ a.id }}"
+            title="SADECE KENDİ TARAYICINIZDA bu ankete ait tamamlandı kaydını siler. Test için kullanın.">
+        <button type="submit" class="btn btn-gri btn-kucuk" onclick="return confirm('Bu sadece KENDİ tarayıcınızdaki kaydı sıfırlar. Tekrar test etmek için devam edin.')">🔓 Testi Sıfırla</button>
+      </form>
       <form method="POST" action="/admin/anket/{{ a.id }}/sil" onsubmit="return confirm('Bu anketi ve tüm yanıtları silmek istediğinizden emin misiniz?')">
         <button type="submit" class="btn btn-tehlike btn-kucuk">🗑 Sil</button>
       </form>
     </div>
   </div>
+
+  <!-- Hızlı ikon + renk düzenle -->
+  <form class="hizli-duzenle" method="POST" action="/admin/anket/{{ a.id }}/hizli_guncelle"
+        id="hform_{{ a.id }}">
+    <span class="renk-etiket">İkon:</span>
+    <div style="position:relative">
+      <div class="ikon-tetik" id="ikon_tetik_{{ a.id }}"
+           onclick="emojiPickerAc('{{ a.id }}')" title="İkon seç">
+        <span id="oniz_ikon_{{ a.id }}">{{ a.icon }}</span>
+      </div>
+      <input type="hidden" name="icon" id="ikon_inp_{{ a.id }}" value="{{ a.icon }}">
+      <div class="emoji-picker-pop" id="epop_{{ a.id }}"></div>
+    </div>
+    <span class="renk-etiket">Arka plan rengi:</span>
+    <input class="renk-on" type="color" name="kart_renk"
+           value="{{ a.kart_renk if a.kart_renk else '#ffffff' }}"
+           id="renk_inp_{{ a.id }}"
+           oninput="guncelleOnizleme('{{ a.id }}',this.value)"
+           title="Kart rengi seç">
+    <button type="button" class="btn btn-gri btn-kucuk"
+            onclick="document.getElementById('renk_inp_{{ a.id }}').value='#ffffff';guncelleOnizleme('{{ a.id }}','#ffffff')">
+      ↺ Sıfırla
+    </button>
+    <button type="submit" class="btn btn-ana btn-kucuk">💾 Kaydet</button>
+  </form>
 </div>
 {% else %}
 <div class="bos-durum">Henüz anket oluşturulmamış.</div>
 {% endfor %}
 
+<script>
+function guncelleOnizleme(aid, renk) {
+  var kart = document.getElementById('oniz_' + aid);
+  if (!kart) return;
+  var beyaz = renk === '#ffffff' || renk === '';
+  kart.style.background = beyaz ? 'var(--gri-ac)' : renk;
+  kart.style.borderColor = beyaz ? 'var(--kenar)' : renk;
+}
+
+/* ── Emoji picker ── */
+var EMOJILER = [
+  {kat:'📚 Eğitim', liste:['📚','📖','✏️','📝','🎓','🏫','📐','📏','🔬','🔭','📊','📈','🧮','🖊️','📓','📒','📔','📕','📗','📘']},
+  {kat:'👥 Kişiler', liste:['👨‍🎓','👩‍🎓','👨‍🏫','👩‍🏫','👦','👧','🧒','👨‍👩‍👧','👨‍👩‍👦','🤝','👪','🧑‍🤝‍🧑','💁','🙋','🧑‍💼','👮','🧑‍🔬']},
+  {kat:'😊 İfadeler', liste:['😊','😄','🤩','🥳','😎','🤔','😢','😍','🥰','😇','🙂','😀','😃','😁','🤗','😉','🤭','😮','😲']},
+  {kat:'⭐ Semboller', liste:['⭐','🌟','✨','💫','🏆','🥇','🎯','💡','🔑','❤️','💙','💚','💛','🧡','💜','🔴','🟢','🔵','🟡']},
+  {kat:'🏠 Yerler', liste:['🏫','🏛️','🏢','🏠','🏡','🏗️','⛪','🕌','🕍','🏟️','🎪','🏰','🗼','🎡','🗽','🏖️','🌳','🌲']},
+  {kat:'💬 İletişim', liste:['💬','📢','📣','🔔','📱','💻','🖥️','📞','☎️','📡','🛜','📨','📩','📬','📭','📮','🗣️','💌']},
+  {kat:'🎨 Sanat & Spor', liste:['🎨','🎭','🎬','🎤','🎵','🎶','🎸','🎹','🏀','⚽','🏈','🎾','🏊','🤸','🧘','🎮','🎲','♟️']},
+  {kat:'🔧 Araçlar', liste:['🔧','⚙️','🛠️','📋','📌','📍','🗂️','🗃️','📎','🖇️','✂️','🗑️','💾','💿','📀','🖨️','⌨️','🖱️']},
+  {kat:'🌱 Doğa', liste:['🌱','🌿','🍀','🌸','🌺','🌻','🌹','🌷','🍁','🍂','🌊','☀️','🌙','⭐','🌈','❄️','🔥','💧']},
+  {kat:'🦉 Hayvanlar', liste:['🦉','🐬','🐘','🦁','🐯','🦊','🐺','🦅','🦋','🐝','🐢','🐬','🦒','🦓','🐧','🦜','🐸','🐻']},
+];
+
+var _acikPop = null;
+
+function emojiPickerAc(aid) {
+  if (_acikPop && _acikPop !== aid) {
+    document.getElementById('epop_' + _acikPop).classList.remove('acik');
+  }
+  var pop = document.getElementById('epop_' + aid);
+  if (pop.classList.contains('acik')) {
+    pop.classList.remove('acik');
+    _acikPop = null;
+    return;
+  }
+  if (!pop.dataset.dolu) {
+    var frag = document.createDocumentFragment();
+    EMOJILER.forEach(function(k) {
+      var lbl = document.createElement('div');
+      lbl.className = 'emoji-kategori';
+      lbl.textContent = k.kat;
+      frag.appendChild(lbl);
+      var grid = document.createElement('div');
+      grid.className = 'emoji-grid';
+      k.liste.forEach(function(e) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'emoji-btn';
+        btn.title = e;
+        btn.textContent = e;
+        btn.addEventListener('click', function() { emojiSec(aid, e); });
+        grid.appendChild(btn);
+      });
+      frag.appendChild(grid);
+    });
+    pop.appendChild(frag);
+    pop.dataset.dolu = '1';
+  }
+  pop.classList.add('acik');
+  _acikPop = aid;
+}
+
+function emojiSec(aid, emoji) {
+  // Hidden input güncelle (form gönderiminde kullanılır)
+  document.getElementById('ikon_inp_' + aid).value = emoji;
+  // Tetik butonu (emoji picker açan büyük buton)
+  document.getElementById('oniz_ikon_' + aid).textContent = emoji;
+  // Üstteki önizleme kartı
+  var kartIkon = document.getElementById('oniz_kart_ikon_' + aid);
+  if (kartIkon) kartIkon.textContent = emoji;
+  // Picker'ı kapat
+  document.getElementById('epop_' + aid).classList.remove('acik');
+  _acikPop = null;
+}
+
+document.addEventListener('click', function(e) {
+  if (_acikPop && !e.target.closest('.emoji-picker-pop') && !e.target.closest('.ikon-tetik')) {
+    document.getElementById('epop_' + _acikPop).classList.remove('acik');
+    _acikPop = null;
+  }
+});
+</script>
 {% endblock %}
