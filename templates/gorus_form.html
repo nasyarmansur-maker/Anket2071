@@ -1,60 +1,62 @@
 {% extends "base.html" %}
-{% block baslik %}Görüş, Dilek ve Şikayetler{% endblock %}
+{% block baslik %}{{ gorus_baslik }}{% endblock %}
 {% block ekstra_css %}
 <style>
 .gorus-kap{max-width:520px;margin:0 auto;padding:1.5rem 0}
+{% if gorus_bg_renk %}.kap{background:{{ gorus_bg_renk }}}{% endif %}
 .tur-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1.5rem}
-.tur-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:1rem;border:2px solid var(--kenar);border-radius:var(--r-lg);cursor:pointer;transition:all .15s;background:var(--yuzey);position:relative}
+.tur-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:1rem;border:2px solid var(--kenar);border-radius:var(--r-lg);cursor:pointer;transition:all .15s;background:var(--yuzey);position:relative;text-decoration:none}
+{% if gorus_kart_renk %}.tur-btn{background:{{ gorus_kart_renk }}}{% endif %}
 .tur-btn input[type=radio]{position:absolute;opacity:0;width:0;height:0}
 .tur-btn .tur-ikon{font-size:32px;line-height:1}
 .tur-btn .tur-lbl{font-size:13px;font-weight:700;color:var(--metin)}
-.tur-btn .tur-acik{font-size:11px;color:var(--metin-ik);text-align:center}
-.tur-btn.secili{border-color:var(--ana);background:var(--ana-ac)}
-.tur-btn.secili .tur-lbl{color:var(--ana)}
-.tur-btn:hover{border-color:var(--ana-orta);background:var(--ana-ac)}
+.tur-btn.secili{border-color:var(--ana);box-shadow:0 0 0 3px var(--ana-ac)}
+.tur-btn:hover{border-color:var(--ana-orta)}
 .gorus-textarea{width:100%;min-height:140px;padding:12px;border:1.5px solid var(--kenar);border-radius:var(--r);font-size:14px;font-family:inherit;resize:vertical;background:var(--yuzey);color:var(--metin);outline:none;box-sizing:border-box}
 .gorus-textarea:focus{border-color:var(--ana);box-shadow:0 0 0 3px var(--ana-ac)}
 .karakter-say{font-size:11px;color:var(--metin-uc);text-align:right;margin-top:3px}
 </style>
+{% if gorus_arka_gorsel %}
+<style>
+.kap{background-image:url('{{ gorus_arka_gorsel }}');background-size:cover;background-position:center;background-attachment:fixed}
+.gorus-kap{background:rgba(255,255,255,.92);border-radius:var(--r-lg);padding:1.5rem;margin:1rem auto}
+</style>
+{% endif %}
 {% endblock %}
 {% block icerik %}
 <div class="kap">
   <div class="gorus-kap">
-    <div class="form-baslik" style="text-align:center;margin-bottom:.5rem">💬 Görüş, Dilek ve Şikayetler</div>
-    <p style="font-size:13px;color:var(--metin-ik);text-align:center;margin-bottom:1.5rem">
-      Düşüncelerinizi bizimle paylaşın. Tüm bildirimler anonim olarak değerlendirilir.
-    </p>
+    {% if gorus_logo %}
+    <div style="text-align:center;margin-bottom:1rem">
+      <img src="{{ gorus_logo }}" style="max-height:80px;max-width:200px;object-fit:contain">
+    </div>
+    {% endif %}
+    <div class="form-baslik" style="text-align:center;margin-bottom:.5rem">{{ gorus_baslik }}</div>
+    {% if gorus_aciklama %}
+    <p style="font-size:13px;color:var(--metin-ik);text-align:center;margin-bottom:1.5rem">{{ gorus_aciklama }}</p>
+    {% endif %}
 
     <form method="POST" id="gorusForm">
-      <!-- Tür seçimi -->
       <div class="tur-grid">
-        <label class="tur-btn secili" id="lbl_dilek">
-          <input type="radio" name="tur" value="dilek" checked onchange="turSec('dilek')">
-          <span class="tur-ikon">🌟</span>
-          <span class="tur-lbl">Dilek & Temenni</span>
-          <span class="tur-acik">İsteklerinizi bildirin</span>
+        {% set turler = [] %}
+        {% if gorus_dilek_aktif=='1' %}{% set _ = turler.append(('dilek', gorus_dilek_ikon, gorus_dilek_renk, gorus_dilek_lbl)) %}{% endif %}
+        {% if gorus_gorus_aktif=='1' %}{% set _ = turler.append(('gorus', gorus_gorus_ikon, gorus_gorus_renk, gorus_gorus_lbl)) %}{% endif %}
+        {% if gorus_sikayet_aktif=='1' %}{% set _ = turler.append(('sikayet', gorus_sikayet_ikon, gorus_sikayet_renk, gorus_sikayet_lbl)) %}{% endif %}
+        {% if gorus_tebrik_aktif=='1' %}{% set _ = turler.append(('tebrik', gorus_tebrik_ikon, gorus_tebrik_renk, gorus_tebrik_lbl)) %}{% endif %}
+
+        {% for tur_id, tur_ikon, tur_renk, tur_lbl in turler %}
+        <label class="tur-btn {% if loop.first %}secili{% endif %}"
+               id="lbl_{{ tur_id }}"
+               style="{% if tur_renk %}background:{{ tur_renk }};{% endif %}">
+          <input type="radio" name="tur" value="{{ tur_id }}"
+                 {% if loop.first %}checked{% endif %}
+                 onchange="turSec('{{ tur_id }}')">
+          <span class="tur-ikon">{{ tur_ikon }}</span>
+          <span class="tur-lbl">{{ tur_lbl }}</span>
         </label>
-        <label class="tur-btn" id="lbl_gorus">
-          <input type="radio" name="tur" value="gorus" onchange="turSec('gorus')">
-          <span class="tur-ikon">💬</span>
-          <span class="tur-lbl">Görüş & Öneri</span>
-          <span class="tur-acik">Fikirlerinizi paylaşın</span>
-        </label>
-        <label class="tur-btn" id="lbl_sikayet">
-          <input type="radio" name="tur" value="sikayet" onchange="turSec('sikayet')">
-          <span class="tur-ikon">⚠️</span>
-          <span class="tur-lbl">Şikayet</span>
-          <span class="tur-acik">Sorunları bildirin</span>
-        </label>
-        <label class="tur-btn" id="lbl_tebrik">
-          <input type="radio" name="tur" value="tebrik" onchange="turSec('tebrik')">
-          <span class="tur-ikon">👏</span>
-          <span class="tur-lbl">Teşekkür & Tebrik</span>
-          <span class="tur-acik">Takdirinizi bildirin</span>
-        </label>
+        {% endfor %}
       </div>
 
-      <!-- İçerik -->
       <div style="margin-bottom:1rem">
         <label style="font-size:13px;font-weight:600;color:var(--metin-ik);margin-bottom:6px;display:block">
           Mesajınız <span style="color:var(--kirmizi)">*</span>
@@ -75,17 +77,13 @@
   </div>
 </div>
 <script>
+var turRenkler = {
+  {% for tur_id, tur_ikon, tur_renk, tur_lbl in turler %}'{{ tur_id }}':'{{ tur_renk }}',{% endfor %}
+};
 function turSec(tur) {
-  ['dilek','gorus','sikayet','tebrik'].forEach(function(t){
-    document.getElementById('lbl_'+t).classList.toggle('secili', t===tur);
-  });
-  var placeholders = {
-    'dilek': 'Okulumuzdan ne gibi istekleriniz var?',
-    'gorus': 'Görüş ve önerilerinizi paylaşın...',
-    'sikayet': 'Şikayetinizi açıklayın...',
-    'tebrik': 'Teşekkür veya tebrik mesajınızı yazın...'
-  };
-  document.getElementById('icerik').placeholder = placeholders[tur] || 'Mesajınızı yazın...';
+  document.querySelectorAll('.tur-btn').forEach(function(b){ b.classList.remove('secili'); });
+  var lbl = document.getElementById('lbl_'+tur);
+  if(lbl) lbl.classList.add('secili');
 }
 function sayim(){
   document.getElementById('sayac').textContent = document.getElementById('icerik').value.length;

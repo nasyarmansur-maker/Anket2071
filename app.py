@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
 app.secret_key = "okul_anket_super_gizli_2024"
-DB = "anket.db"
+DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "anket.db")
 
 # ─── Veritabanı ───────────────────────────────────────────────────
 def db():
@@ -79,6 +79,29 @@ def db_init():
             "bildirim_aktif": "0",
             "kilit_gorsel": "",
             "saat_dilimi_offset": "3",
+            "gorus_aktif": "1",
+            "gorus_baslik": "Görüş, Dilek & Şikayetler",
+            "gorus_aciklama": "Düşüncelerinizi bizimle paylaşın. Tüm bildirimler anonim olarak değerlendirilir.",
+            "gorus_buton_metin": "💬 Görüş, Dilek & Şikayet",
+            "gorus_buton_renk": "",
+            "gorus_buton_yeri": "alt",
+            "gorus_tema": "varsayilan",
+            "gorus_dilek_aktif": "1", "gorus_dilek_ikon": "🌟", "gorus_dilek_renk": "#fef9e7",
+            "gorus_gorus_aktif": "1",  "gorus_gorus_ikon": "💬", "gorus_gorus_renk": "#e8f0ff",
+            "gorus_sikayet_aktif": "1","gorus_sikayet_ikon": "⚠️", "gorus_sikayet_renk": "#fff0f0",
+            "gorus_tebrik_aktif": "1", "gorus_tebrik_ikon": "👏", "gorus_tebrik_renk": "#e8f5e8",
+            "gorus_dilek_lbl": "Dilek & Temenni", "gorus_gorus_lbl": "Görüş & Öneri",
+            "gorus_sikayet_lbl": "Şikayet", "gorus_tebrik_lbl": "Teşekkür & Tebrik",
+            "gorus_logo": "", "gorus_arka_gorsel": "",
+            "gorus_bg_renk": "", "gorus_kart_renk": "",
+            "header_aktif": "1",
+            "header_bg_renk": "",
+            "header_yazi_renk": "",
+            "header_logo_boyut": "40",
+            "header_baslik_boyut": "18",
+            "header_sehir_aktif": "1",
+            "header_anasayfa_aktif": "1",
+            "header_yukseklik": "60",
             "anket_varsayilan_gorunum": "adim",
             "anket_gorunum_secim_goster": "1",
             "hero_baslik": "",
@@ -201,7 +224,19 @@ def anket_aktif_mi(a):
 
 def gctx():
     return {"okul_adi":ayar("okul_adi"),"okul_sehir":ayar("okul_sehir"),
-            "tema":ayar("tema","mavi"),"amblem":ayar("amblem")}
+            "tema":ayar("tema","mavi"),"amblem":ayar("amblem"),
+            "header_aktif":ayar("header_aktif","1"),
+            "header_bg_renk":ayar("header_bg_renk",""),
+            "header_yazi_renk":ayar("header_yazi_renk",""),
+            "header_logo_boyut":ayar("header_logo_boyut","40"),
+            "header_baslik_boyut":ayar("header_baslik_boyut","18"),
+            "header_sehir_aktif":ayar("header_sehir_aktif","1"),
+            "header_anasayfa_aktif":ayar("header_anasayfa_aktif","1"),
+            "header_yukseklik":ayar("header_yukseklik","60"),
+            "gorus_aktif":ayar("gorus_aktif","1"),
+            "gorus_buton_metin":ayar("gorus_buton_metin","💬 Görüş, Dilek & Şikayet"),
+            "gorus_buton_renk":ayar("gorus_buton_renk",""),
+            "gorus_buton_yeri":ayar("gorus_buton_yeri","alt")}
 
 def giris_gerekli(f):
     @wraps(f)
@@ -705,7 +740,33 @@ def gorus_form():
                           (tur, icerik, simdi().strftime("%d.%m.%Y"), simdi().strftime("%H:%M")))
                 c.commit()
         return redirect(url_for("gorus_tesekkur"))
+    def ga(k,v=""): return ayar(k,v)
     ctx = gctx()
+    ctx.update({
+        "gorus_aktif":ga("gorus_aktif","1"),
+        "gorus_baslik":ga("gorus_baslik","Görüş, Dilek & Şikayetler"),
+        "gorus_aciklama":ga("gorus_aciklama","Düşüncelerinizi bizimle paylaşın."),
+        "gorus_logo":ga("gorus_logo"),
+        "gorus_arka_gorsel":ga("gorus_arka_gorsel"),
+        "gorus_bg_renk":ga("gorus_bg_renk"),
+        "gorus_kart_renk":ga("gorus_kart_renk"),
+        "gorus_dilek_aktif":ga("gorus_dilek_aktif","1"),
+        "gorus_dilek_ikon":ga("gorus_dilek_ikon","🌟"),
+        "gorus_dilek_renk":ga("gorus_dilek_renk","#fef9e7"),
+        "gorus_dilek_lbl":ga("gorus_dilek_lbl","Dilek & Temenni"),
+        "gorus_gorus_aktif":ga("gorus_gorus_aktif","1"),
+        "gorus_gorus_ikon":ga("gorus_gorus_ikon","💬"),
+        "gorus_gorus_renk":ga("gorus_gorus_renk","#e8f0ff"),
+        "gorus_gorus_lbl":ga("gorus_gorus_lbl","Görüş & Öneri"),
+        "gorus_sikayet_aktif":ga("gorus_sikayet_aktif","1"),
+        "gorus_sikayet_ikon":ga("gorus_sikayet_ikon","⚠️"),
+        "gorus_sikayet_renk":ga("gorus_sikayet_renk","#fff0f0"),
+        "gorus_sikayet_lbl":ga("gorus_sikayet_lbl","Şikayet"),
+        "gorus_tebrik_aktif":ga("gorus_tebrik_aktif","1"),
+        "gorus_tebrik_ikon":ga("gorus_tebrik_ikon","👏"),
+        "gorus_tebrik_renk":ga("gorus_tebrik_renk","#e8f5e8"),
+        "gorus_tebrik_lbl":ga("gorus_tebrik_lbl","Teşekkür & Tebrik"),
+    })
     return render_template("gorus_form.html", **ctx)
 
 @app.route("/gorus/tesekkur")
@@ -828,6 +889,72 @@ def tam_veri_yedek_yukle():
         c.commit()
     flash_msg = f"Yüklendi: {yuklenen['yanitlar']} yanıt, {yuklenen['gorusler']} görüş."
     return redirect(url_for("admin_ayarlar") + "?veri_yuklendi=1&msg=" + flash_msg)
+
+
+@app.route("/admin/gorus_ayarlar", methods=["GET","POST"])
+@giris_gerekli
+def admin_gorus_ayarlar():
+    mesaj = None
+    if request.method == "POST":
+        for k in ["gorus_aktif","gorus_baslik","gorus_aciklama","gorus_buton_metin",
+                  "gorus_buton_renk","gorus_buton_yeri","gorus_tema",
+                  "gorus_dilek_ikon","gorus_dilek_renk","gorus_dilek_lbl",
+                  "gorus_gorus_ikon","gorus_gorus_renk","gorus_gorus_lbl",
+                  "gorus_sikayet_ikon","gorus_sikayet_renk","gorus_sikayet_lbl",
+                  "gorus_tebrik_ikon","gorus_tebrik_renk","gorus_tebrik_lbl",
+                  "gorus_bg_renk","gorus_kart_renk"]:
+            v = request.form.get(k)
+            if v is not None: ayar_set(k, v)
+        for k in ["gorus_dilek_aktif","gorus_gorus_aktif","gorus_sikayet_aktif","gorus_tebrik_aktif"]:
+            ayar_set(k, "1" if request.form.get(k) else "0")
+        fl = request.files.get("gorus_logo")
+        if fl and fl.filename:
+            data=fl.read(); ext=fl.filename.rsplit(".",1)[-1].lower()
+            mime="image/png" if ext=="png" else "image/jpeg" if ext in ["jpg","jpeg"] else f"image/{ext}"
+            ayar_set("gorus_logo", f"data:{mime};base64,{base64.b64encode(data).decode()}")
+        elif request.form.get("gorus_logo_sil"):
+            ayar_set("gorus_logo","")
+        fb = request.files.get("gorus_arka_gorsel")
+        if fb and fb.filename:
+            data=fb.read(); ext=fb.filename.rsplit(".",1)[-1].lower()
+            mime="image/png" if ext=="png" else "image/jpeg" if ext in ["jpg","jpeg"] else f"image/{ext}"
+            ayar_set("gorus_arka_gorsel", f"data:{mime};base64,{base64.b64encode(data).decode()}")
+        elif request.form.get("gorus_arka_gorsel_sil"):
+            ayar_set("gorus_arka_gorsel","")
+        mesaj = "Görüş ayarları kaydedildi! ✓"
+    def ga(k,v=""): return ayar(k,v)
+    ctx = gctx()
+    ctx.update({
+        "mesaj":mesaj,
+        "gorus_aktif":ga("gorus_aktif","1"),
+        "gorus_baslik":ga("gorus_baslik","Görüş, Dilek & Şikayetler"),
+        "gorus_aciklama":ga("gorus_aciklama"),
+        "gorus_buton_metin":ga("gorus_buton_metin","💬 Görüş, Dilek & Şikayet"),
+        "gorus_buton_renk":ga("gorus_buton_renk"),
+        "gorus_buton_yeri":ga("gorus_buton_yeri","alt"),
+        "gorus_tema":ga("gorus_tema","varsayilan"),
+        "gorus_logo":ga("gorus_logo"),
+        "gorus_arka_gorsel":ga("gorus_arka_gorsel"),
+        "gorus_bg_renk":ga("gorus_bg_renk"),
+        "gorus_kart_renk":ga("gorus_kart_renk"),
+        "gorus_dilek_aktif":ga("gorus_dilek_aktif","1"),
+        "gorus_dilek_ikon":ga("gorus_dilek_ikon","🌟"),
+        "gorus_dilek_renk":ga("gorus_dilek_renk","#fef9e7"),
+        "gorus_dilek_lbl":ga("gorus_dilek_lbl","Dilek & Temenni"),
+        "gorus_gorus_aktif":ga("gorus_gorus_aktif","1"),
+        "gorus_gorus_ikon":ga("gorus_gorus_ikon","💬"),
+        "gorus_gorus_renk":ga("gorus_gorus_renk","#e8f0ff"),
+        "gorus_gorus_lbl":ga("gorus_gorus_lbl","Görüş & Öneri"),
+        "gorus_sikayet_aktif":ga("gorus_sikayet_aktif","1"),
+        "gorus_sikayet_ikon":ga("gorus_sikayet_ikon","⚠️"),
+        "gorus_sikayet_renk":ga("gorus_sikayet_renk","#fff0f0"),
+        "gorus_sikayet_lbl":ga("gorus_sikayet_lbl","Şikayet"),
+        "gorus_tebrik_aktif":ga("gorus_tebrik_aktif","1"),
+        "gorus_tebrik_ikon":ga("gorus_tebrik_ikon","👏"),
+        "gorus_tebrik_renk":ga("gorus_tebrik_renk","#e8f5e8"),
+        "gorus_tebrik_lbl":ga("gorus_tebrik_lbl","Teşekkür & Tebrik"),
+    })
+    return render_template("admin_gorus_ayarlar.html", **ctx)
 
 # ─── QR Kod ──────────────────────────────────────────────────────
 @app.route("/admin/qr/<int:anket_id>")
@@ -1128,6 +1255,15 @@ def admin_ayarlar():
                   "hosgeldin_metin","alt_yazi","smtp_host","smtp_port",
                   "smtp_user","smtp_pass","bildirim_email",
                   "anket_varsayilan_gorunum","saat_dilimi_offset",
+                  "gorus_aktif","gorus_baslik","gorus_aciklama","gorus_buton_metin",
+                  "gorus_buton_renk","gorus_buton_yeri","gorus_tema",
+                  "gorus_dilek_ikon","gorus_dilek_renk","gorus_dilek_lbl",
+                  "gorus_gorus_ikon","gorus_gorus_renk","gorus_gorus_lbl",
+                  "gorus_sikayet_ikon","gorus_sikayet_renk","gorus_sikayet_lbl",
+                  "gorus_tebrik_ikon","gorus_tebrik_renk","gorus_tebrik_lbl",
+                  "gorus_bg_renk","gorus_kart_renk",
+                  "header_bg_renk","header_yazi_renk","header_logo_boyut",
+                  "header_baslik_boyut","header_sehir_aktif","header_anasayfa_aktif","header_yukseklik",
                   "hero_baslik","hero_alt_baslik",
                   "hero_gorsel_genislik","hero_gorsel_sekil","hero_baslik_boyut","hero_alt_boyut"]:
             v=request.form.get(k)
@@ -1135,6 +1271,11 @@ def admin_ayarlar():
         ayar_set("bildirim_aktif","1" if request.form.get("bildirim_aktif") else "0")
         ayar_set("hero_gorsel_orijinal","1" if request.form.get("hero_gorsel_orijinal") else "0")
         ayar_set("anket_gorunum_secim_goster","1" if request.form.get("anket_gorunum_secim_goster") else "0")
+        ayar_set("gorus_dilek_aktif","1" if request.form.get("gorus_dilek_aktif") else "0")
+        ayar_set("gorus_gorus_aktif","1" if request.form.get("gorus_gorus_aktif") else "0")
+        ayar_set("gorus_sikayet_aktif","1" if request.form.get("gorus_sikayet_aktif") else "0")
+        ayar_set("gorus_tebrik_aktif","1" if request.form.get("gorus_tebrik_aktif") else "0")
+        ayar_set("header_aktif","1" if request.form.get("header_aktif") else "0")
         f=request.files.get("amblem")
         if f and f.filename:
             data=f.read(); ext=f.filename.rsplit(".",1)[-1].lower()
@@ -1150,6 +1291,22 @@ def admin_ayarlar():
             ayar_set("hero_gorsel",f"data:{mime};base64,{base64.b64encode(data).decode()}")
         elif request.form.get("hero_gorsel_sil"):
             ayar_set("hero_gorsel","")
+        # Görüş logo
+        fl=request.files.get("gorus_logo")
+        if fl and fl.filename:
+            data=fl.read(); ext=fl.filename.rsplit(".",1)[-1].lower()
+            mime="image/png" if ext=="png" else "image/jpeg" if ext in ["jpg","jpeg"] else f"image/{ext}"
+            ayar_set("gorus_logo",f"data:{mime};base64,{base64.b64encode(data).decode()}")
+        elif request.form.get("gorus_logo_sil"):
+            ayar_set("gorus_logo","")
+        # Görüş arka plan görseli
+        fb=request.files.get("gorus_arka_gorsel")
+        if fb and fb.filename:
+            data=fb.read(); ext=fb.filename.rsplit(".",1)[-1].lower()
+            mime="image/png" if ext=="png" else "image/jpeg" if ext in ["jpg","jpeg"] else f"image/{ext}"
+            ayar_set("gorus_arka_gorsel",f"data:{mime};base64,{base64.b64encode(data).decode()}")
+        elif request.form.get("gorus_arka_gorsel_sil"):
+            ayar_set("gorus_arka_gorsel","")
         mesaj="Ayarlar kaydedildi! ✓"
     ctx=gctx()
     ctx.update({"mesaj":mesaj,"gorunum":ayar("anasayfa_gorunum","kartlar"),
@@ -1170,7 +1327,16 @@ def admin_ayarlar():
                 "bildirim_email":ayar("bildirim_email"),
                 "bildirim_aktif":ayar("bildirim_aktif","0"),
                 "saat_dilimi_offset":ayar("saat_dilimi_offset","3"),
-                "kilit_gorsel":ayar("kilit_gorsel","")})
+                "kilit_gorsel":ayar("kilit_gorsel",""),
+                "header_aktif":ayar("header_aktif","1"),
+                "header_bg_renk":ayar("header_bg_renk",""),
+                "header_yazi_renk":ayar("header_yazi_renk",""),
+                "header_logo_boyut":ayar("header_logo_boyut","40"),
+                "header_baslik_boyut":ayar("header_baslik_boyut","18"),
+                "header_sehir_aktif":ayar("header_sehir_aktif","1"),
+                "header_anasayfa_aktif":ayar("header_anasayfa_aktif","1"),
+                "header_yukseklik":ayar("header_yukseklik","60")})
+
     return render_template("admin_ayarlar.html",**ctx)
 
 # ─── Excel ───────────────────────────────────────────────────────

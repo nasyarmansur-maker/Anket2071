@@ -7,80 +7,69 @@
 <link rel="stylesheet" href="/static/css/style.css">
 {% block ekstra_css %}{% endblock %}
 <style>
-  /* iFrame içinde html/body asla kendi kaydırma çubuğu göstermesin */
-  html, body {
-    overflow-x: hidden;
-    /* overflow-y kasıtlı açık — JS yüksekliği hesaplamak için gerekli */
-  }
+  html, body { overflow-x: hidden; }
+  {% if header_bg_renk %}
+  .site-header { background: {{ header_bg_renk }} !important; }
+  {% endif %}
+  {% if header_yazi_renk %}
+  .site-header .okul-adi-header,
+  .site-header .okul-sehir-header,
+  .site-header .header-link,
+  .site-header .logo-bolum { color: {{ header_yazi_renk }} !important; }
+  {% endif %}
+  {% if header_yukseklik and header_yukseklik != '60' %}
+  .site-header { min-height: {{ header_yukseklik }}px; }
+  .header-ic { min-height: {{ header_yukseklik }}px; }
+  {% endif %}
 </style>
 </head>
 <body>
+{% if header_aktif == '1' %}
 <header class="site-header">
   <div class="header-ic">
     <a href="/" class="logo-bolum">
       {% if amblem %}
-        <img src="{{ amblem }}" class="amblem-img" alt="Amblem">
+        <img src="{{ amblem }}" class="amblem-img" alt="Amblem"
+             style="width:{{ header_logo_boyut }}px;height:{{ header_logo_boyut }}px;object-fit:contain">
       {% else %}
-        <div class="amblem-placeholder">🏫</div>
+        <div class="amblem-placeholder" style="font-size:{{ header_logo_boyut|int - 8 }}px">🏫</div>
       {% endif %}
       <div>
-        <div class="okul-adi-header">{{ okul_adi }}</div>
-        {% if okul_sehir %}<div class="okul-sehir-header">{{ okul_sehir }}</div>{% endif %}
+        <div class="okul-adi-header" style="font-size:{{ header_baslik_boyut }}px">{{ okul_adi }}</div>
+        {% if header_sehir_aktif == '1' and okul_sehir %}
+          <div class="okul-sehir-header">{{ okul_sehir }}</div>
+        {% endif %}
       </div>
     </a>
     <nav class="header-nav">
-      <a href="/" class="header-link">Ana Sayfa</a>
+      {% if header_anasayfa_aktif == '1' %}
+        <a href="/" class="header-link">Ana Sayfa</a>
+      {% endif %}
     </nav>
   </div>
 </header>
+{% endif %}
 <main>{% block icerik %}{% endblock %}</main>
 
 <script>
 (function() {
-  // ── iFrame otomatik yükseklik ──────────────────────────────
-  // Çalışma prensibi:
-  //   1. Sayfanın gerçek yüksekliğini ölç
-  //   2. postMessage ile üst pencereye (okul sitesi) bildir
-  //   3. Üst pencere iFrame'in height'ını günceller
-  //   4. iFrame'in kendi scrollbar'ı böylece hiç oluşmaz
-
   var enSon = 0;
-
   function olc() {
-    // Tüm yükseklik ölçüm yöntemlerinin maksimumu
     var h = Math.max(
       document.body.getBoundingClientRect().bottom,
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight
+      document.body.scrollHeight, document.body.offsetHeight,
+      document.documentElement.scrollHeight, document.documentElement.offsetHeight
     );
-    // Yuvarlama payı: mobil tarayıcılar bazen 1-2px eksik ölçer
     h = Math.ceil(h) + 32;
-    // Küçülme engeli: sayfa içeriği azalsa bile ani küçülmeyi önle
-    // (adım geçişinde bir sonraki adım yüklenene kadar eski yükseklik korunsun)
     if (h > enSon) enSon = h;
     window.parent.postMessage({ iframeHeight: enSon }, '*');
   }
-
-  // Sayfa tamamen yüklenince
   if (document.readyState === 'complete') { olc(); }
   else { window.addEventListener('load', olc); }
-
-  // DOM değişince (adım geçişi, koşullu sorular, form submit)
   var obs = new MutationObserver(function() { setTimeout(olc, 50); });
   obs.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-  // Ekran döndürme / klavye açılma
-  window.addEventListener('resize', function() {
-    enSon = 0; // sıfırla — yeni boyut hesaplansın
-    setTimeout(olc, 400);
-  });
-
-  // Sayfa değişince (teşekkür sayfasına geçiş vb.) sıfırla
+  window.addEventListener('resize', function() { enSon = 0; setTimeout(olc, 400); });
   window.addEventListener('beforeunload', function() { enSon = 0; });
-
-  // Güvenlik taraması: 500ms'de bir kontrol
   setInterval(function() { olc(); }, 500);
 })();
 </script>

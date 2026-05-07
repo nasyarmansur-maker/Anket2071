@@ -291,7 +291,8 @@
     </script>
   </div>
 
-  <!-- Kilit Ekranı Görseli -->
+  <!-- Kilit Ekranı Görseli — ayrı form (nested form bug'ı önlemek için form dışında) -->
+  </form>
   <div class="kart" style="margin-bottom:.75rem" id="kilit-gorsel">
     <div style="font-size:15px;font-weight:700;margin-bottom:.5rem">🔒 Kilit Ekranı Görseli</div>
     <p style="font-size:13px;color:var(--metin-ik);margin-bottom:1rem">
@@ -310,24 +311,64 @@
       <button type="submit" class="btn btn-gri btn-kucuk" style="margin-top:8px">📤 Yükle</button>
     </form>
   </div>
+  <form method="POST" enctype="multipart/form-data">
 
   <!-- Tam Veri Yedekleme -->
   <div class="kart" style="margin-bottom:.75rem">
     <div style="font-size:15px;font-weight:700;margin-bottom:.5rem">💾 Tam Veri Yedekleme (Yanıtlar Dahil)</div>
     <p style="font-size:13px;color:var(--metin-ik);margin-bottom:1rem">
-      Tüm anket yapısını, yanıtları ve görüşleri tek JSON dosyasına yedekler. Sunucu taşıma veya güncelleme öncesi mutlaka alın.
+      Tüm anket yapısını, yanıtları ve görüşleri tek JSON dosyasına yedekler.
     </p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
       <a href="/admin/tam_veri_yedek/indir" class="btn btn-ana btn-kucuk">⬇ Tam Veri Yedeğini İndir</a>
-      <a href="/admin/tam_yedek/indir" class="btn btn-gri btn-kucuk">⬇ Yapı Yedeği (eski)</a>
+      <a href="/admin/tam_yedek/indir" class="btn btn-gri btn-kucuk">⬇ Yapı Yedeği</a>
     </div>
-    <div style="border-top:1px solid var(--kenar);padding-top:.875rem">
-      <div style="font-size:13px;font-weight:600;margin-bottom:6px">Yedekten Geri Yükle</div>
-      <p style="font-size:12px;color:var(--metin-uc);margin-bottom:8px">Mevcut verilere <strong>ekleme</strong> yapar, üstüne yazmaz. Güvenlidir.</p>
-      <form method="POST" action="/admin/tam_veri_yedek/yukle" enctype="multipart/form-data" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input type="file" name="veri_yedek_dosya" accept=".json" style="font-size:13px">
-        <button type="submit" class="btn btn-turuncu btn-kucuk" onclick="return confirm('Yedek dosyası mevcut verilere eklenecek. Devam?')">📤 Yükle</button>
-      </form>
+  </div>
+
+  <!-- Üst Başlık (Header) Ayarları -->
+  <div class="kart" style="margin-bottom:.75rem">
+    <div style="font-size:15px;font-weight:700;margin-bottom:.5rem">🔝 Üst Başlık Ayarları</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      <div>
+        <label class="alan-lbl">Üst Başlık</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="header_aktif" {% if header_aktif=='1' %}checked{% endif %}> Göster
+        </label>
+      </div>
+      <div>
+        <label class="alan-lbl">Şehir Yazısı</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="header_sehir_aktif" {% if header_sehir_aktif=='1' %}checked{% endif %}> Göster
+        </label>
+      </div>
+      <div>
+        <label class="alan-lbl">Ana Sayfa Butonu</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="header_anasayfa_aktif" {% if header_anasayfa_aktif=='1' %}checked{% endif %}> Göster
+        </label>
+      </div>
+      <div>
+        <label class="alan-lbl">Arka Plan Rengi</label>
+        <input type="color" name="header_bg_renk" value="{{ header_bg_renk if header_bg_renk else '#185FA5' }}"
+               style="width:50px;height:34px;padding:2px;border-radius:var(--r);border:1.5px solid var(--kenar)">
+      </div>
+      <div>
+        <label class="alan-lbl">Yazı Rengi</label>
+        <input type="color" name="header_yazi_renk" value="{{ header_yazi_renk if header_yazi_renk else '#ffffff' }}"
+               style="width:50px;height:34px;padding:2px;border-radius:var(--r);border:1.5px solid var(--kenar)">
+      </div>
+      <div>
+        <label class="alan-lbl">Logo Boyutu (px)</label>
+        <input type="number" name="header_logo_boyut" value="{{ header_logo_boyut }}" min="20" max="80" style="width:80px">
+      </div>
+      <div>
+        <label class="alan-lbl">Başlık Yazı Boyutu (px)</label>
+        <input type="number" name="header_baslik_boyut" value="{{ header_baslik_boyut }}" min="12" max="32" style="width:80px">
+      </div>
+      <div>
+        <label class="alan-lbl">Başlık Yüksekliği (px)</label>
+        <input type="number" name="header_yukseklik" value="{{ header_yukseklik }}" min="40" max="120" style="width:80px">
+      </div>
     </div>
   </div>
 

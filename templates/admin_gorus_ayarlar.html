@@ -1,0 +1,185 @@
+{% extends "admin_base.html" %}
+{% set aktif_sayfa = "gorus_ayarlar" %}
+{% block baslik %}Görüş & Dilek Ayarları{% endblock %}
+{% block ekstra_css %}
+<style>
+.ayar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.tur-ayar-kart{border:1.5px solid var(--kenar);border-radius:var(--r-lg);padding:1rem;background:var(--yuzey);display:flex;flex-direction:column;gap:8px}
+.tur-ayar-kart .tur-bas{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.tur-oniz{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;padding:1rem;border-radius:var(--r);font-weight:600;font-size:13px;min-height:80px;border:1px solid rgba(0,0,0,.08);transition:all .2s}
+.renk-inp{width:42px;height:30px;padding:2px;border-radius:var(--r);border:1.5px solid var(--kenar);cursor:pointer}
+.alan-sira{display:flex;flex-direction:column;gap:4px}
+.alan-sira label{font-size:11px;font-weight:700;color:var(--metin-uc);text-transform:uppercase;letter-spacing:.4px}
+.oniz-panel{background:var(--gri-ac);border-radius:var(--r-lg);padding:1.25rem;margin-bottom:1rem;border:1px solid var(--kenar)}
+.oniz-panel h4{font-size:12px;font-weight:700;color:var(--metin-uc);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.875rem}
+.mesaj-kutu{padding:10px 14px;border-radius:var(--r);font-size:13px;font-weight:600;margin-bottom:1rem}
+.mesaj-kutu.ok{background:var(--yesil-ac);color:var(--yesil);border:1px solid #b5d89a}
+</style>
+{% endblock %}
+{% block admin_icerik %}
+
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap">
+  <div class="sayfa-baslik" style="margin:0">🎨 Görüş & Dilek Ayarları</div>
+  <a href="/admin/gorusler" class="btn btn-gri btn-kucuk">💬 Görüşlere Git</a>
+  <a href="/gorus" class="btn btn-gri btn-kucuk" target="_blank">👁 Önizle</a>
+</div>
+
+{% if mesaj %}
+<div class="mesaj-kutu ok">{{ mesaj }}</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data">
+
+  <!-- Genel Ayarlar -->
+  <div class="kart" style="margin-bottom:1rem">
+    <div style="font-size:14px;font-weight:700;margin-bottom:.875rem">⚙️ Genel Ayarlar</div>
+    <div class="ayar-grid">
+      <div class="alan-sira">
+        <label>Görüş Formu</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" name="gorus_aktif" {% if gorus_aktif=='1' %}checked{% endif %}> Aktif
+        </label>
+      </div>
+      <div class="alan-sira">
+        <label>Sayfa Başlığı</label>
+        <input type="text" name="gorus_baslik" value="{{ gorus_baslik }}" placeholder="Görüş, Dilek & Şikayetler">
+      </div>
+      <div class="alan-sira" style="grid-column:1/-1">
+        <label>Açıklama Metni</label>
+        <textarea name="gorus_aciklama" rows="2" style="width:100%;resize:vertical;font-size:13px;padding:8px;border:1.5px solid var(--kenar);border-radius:var(--r);font-family:inherit">{{ gorus_aciklama }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buton Ayarları -->
+  <div class="kart" style="margin-bottom:1rem">
+    <div style="font-size:14px;font-weight:700;margin-bottom:.875rem">🔘 Ana Sayfa Butonu</div>
+    <div class="ayar-grid">
+      <div class="alan-sira">
+        <label>Buton Metni</label>
+        <input type="text" name="gorus_buton_metin" value="{{ gorus_buton_metin }}" placeholder="💬 Görüş, Dilek & Şikayet">
+      </div>
+      <div class="alan-sira">
+        <label>Buton Rengi</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="color" class="renk-inp" name="gorus_buton_renk"
+                 value="{{ gorus_buton_renk if gorus_buton_renk else '#185FA5' }}"
+                 oninput="document.getElementById('buton_oniz').style.background=this.value">
+          <button type="button" class="btn btn-gri btn-kucuk"
+                  onclick="document.querySelector('[name=gorus_buton_renk]').value='#185FA5';document.getElementById('buton_oniz').style.background='#185FA5'">
+            Sıfırla
+          </button>
+        </div>
+      </div>
+      <div class="alan-sira">
+        <label>Buton Konumu</label>
+        <select name="gorus_buton_yeri">
+          <option value="alt" {% if gorus_buton_yeri=='alt' %}selected{% endif %}>Anket listesinin altı</option>
+          <option value="ust" {% if gorus_buton_yeri=='ust' %}selected{% endif %}>Anket listesinin üstü</option>
+          <option value="gizli" {% if gorus_buton_yeri=='gizli' %}selected{% endif %}>Gizle</option>
+        </select>
+      </div>
+      <div class="alan-sira">
+        <label>Önizleme</label>
+        <div id="buton_oniz" style="display:inline-block;padding:10px 20px;border-radius:var(--r-lg);color:#fff;font-size:13px;font-weight:600;background:{{ gorus_buton_renk if gorus_buton_renk else '#185FA5' }}">
+          {{ gorus_buton_metin }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Görsel Ayarları -->
+  <div class="kart" style="margin-bottom:1rem">
+    <div style="font-size:14px;font-weight:700;margin-bottom:.875rem">🖼️ Görsel & Renk Ayarları</div>
+    <div class="ayar-grid">
+      <div class="alan-sira">
+        <label>Arka Plan Rengi</label>
+        <input type="color" class="renk-inp" name="gorus_bg_renk"
+               value="{{ gorus_bg_renk if gorus_bg_renk else '#f5f7fa' }}">
+      </div>
+      <div class="alan-sira">
+        <label>Kart Rengi</label>
+        <input type="color" class="renk-inp" name="gorus_kart_renk"
+               value="{{ gorus_kart_renk if gorus_kart_renk else '#ffffff' }}">
+      </div>
+      <div class="alan-sira">
+        <label>Logo / Üst Görsel</label>
+        {% if gorus_logo %}
+        <img src="{{ gorus_logo }}" style="max-height:60px;max-width:120px;border-radius:var(--r);object-fit:contain;border:1px solid var(--kenar);margin-bottom:4px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="checkbox" name="gorus_logo_sil"> Kaldır
+        </label>
+        {% endif %}
+        <input type="file" name="gorus_logo" accept="image/*" style="font-size:12px">
+      </div>
+      <div class="alan-sira">
+        <label>Arka Plan Görseli</label>
+        {% if gorus_arka_gorsel %}
+        <img src="{{ gorus_arka_gorsel }}" style="max-height:60px;max-width:120px;border-radius:var(--r);object-fit:cover;border:1px solid var(--kenar);margin-bottom:4px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="checkbox" name="gorus_arka_gorsel_sil"> Kaldır
+        </label>
+        {% endif %}
+        <input type="file" name="gorus_arka_gorsel" accept="image/*" style="font-size:12px">
+      </div>
+    </div>
+  </div>
+
+  <!-- Kategori Ayarları -->
+  <div class="kart" style="margin-bottom:1rem">
+    <div style="font-size:14px;font-weight:700;margin-bottom:.875rem">🏷️ Kategori Ayarları</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+
+      {% for tur, default_ikon, default_renk, default_lbl, aktif_val, ikon_val, renk_val, lbl_val in [
+        ('dilek',   '🌟','#fef9e7','Dilek & Temenni',   gorus_dilek_aktif,   gorus_dilek_ikon,   gorus_dilek_renk,   gorus_dilek_lbl),
+        ('gorus',   '💬','#e8f0ff','Görüş & Öneri',     gorus_gorus_aktif,   gorus_gorus_ikon,   gorus_gorus_renk,   gorus_gorus_lbl),
+        ('sikayet', '⚠️','#fff0f0','Şikayet',           gorus_sikayet_aktif, gorus_sikayet_ikon, gorus_sikayet_renk, gorus_sikayet_lbl),
+        ('tebrik',  '👏','#e8f5e8','Teşekkür & Tebrik', gorus_tebrik_aktif,  gorus_tebrik_ikon,  gorus_tebrik_renk,  gorus_tebrik_lbl),
+      ] %}
+
+      <div class="tur-ayar-kart">
+        <div class="tur-bas">
+          <span>{{ ikon_val }}</span> {{ lbl_val }}
+        </div>
+        <!-- Önizleme -->
+        <div class="tur-oniz" id="oniz_{{ tur }}"
+             style="background:{{ renk_val }};font-size:13px">
+          <span id="oniz_ikon_{{ tur }}" style="font-size:28px">{{ ikon_val }}</span>
+          <span id="oniz_lbl_{{ tur }}">{{ lbl_val }}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" name="gorus_{{ tur }}_aktif"
+                   {% if aktif_val=='1' %}checked{% endif %}> Aktif
+          </label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--metin-uc);min-width:32px">İkon:</span>
+            <input type="text" name="gorus_{{ tur }}_ikon"
+                   value="{{ ikon_val }}"
+                   maxlength="4" style="width:48px;font-size:16px;text-align:center;padding:4px"
+                   oninput="document.getElementById('oniz_ikon_{{ tur }}').textContent=this.value">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--metin-uc);min-width:32px">Renk:</span>
+            <input type="color" class="renk-inp" name="gorus_{{ tur }}_renk"
+                   value="{{ renk_val }}"
+                   oninput="document.getElementById('oniz_{{ tur }}').style.background=this.value">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--metin-uc);min-width:32px">Etiket:</span>
+            <input type="text" name="gorus_{{ tur }}_lbl"
+                   value="{{ lbl_val }}"
+                   style="flex:1;font-size:12px"
+                   oninput="document.getElementById('oniz_lbl_{{ tur }}').textContent=this.value">
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-ana" style="padding:12px 32px;font-size:15px">
+    💾 Görüş Ayarlarını Kaydet
+  </button>
+</form>
+{% endblock %}

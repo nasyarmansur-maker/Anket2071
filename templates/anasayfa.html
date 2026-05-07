@@ -103,6 +103,16 @@
   </div>
   {% endif %}
 
+  {% if gorus_aktif=='1' and gorus_buton_yeri=='ust' %}
+  <div style="text-align:center;margin-bottom:1.25rem">
+    <a href="/gorus"
+       style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:var(--r-lg);font-size:13px;font-weight:600;text-decoration:none;
+              {% if gorus_buton_renk %}background:{{ gorus_buton_renk }};color:#fff;border:none;{% else %}border:1.5px solid var(--kenar);background:var(--yuzey);color:var(--metin-ik);{% endif %}">
+      {{ gorus_buton_metin }}
+    </a>
+  </div>
+  {% endif %}
+
   {% if not anketler %}
   <div class="bos-durum">Henüz aktif anket bulunmuyor.</div>
   {% endif %}
@@ -112,12 +122,14 @@
   </p>
 
   <!-- Görüş / Dilek / Şikayet butonu -->
+  {% if gorus_aktif=='1' and gorus_buton_yeri=='alt' %}
   <div style="text-align:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--kenar)">
-    <a href="/gorus" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border:1.5px solid var(--kenar);border-radius:var(--r-lg);background:var(--yuzey);color:var(--metin-ik);font-size:13px;font-weight:600;text-decoration:none;transition:all .15s;box-shadow:var(--golge)" 
-       onmouseover="this.style.borderColor='var(--ana)';this.style.color='var(--ana)';this.style.background='var(--ana-ac)'"
-       onmouseout="this.style.borderColor='var(--kenar)';this.style.color='var(--metin-ik)';this.style.background='var(--yuzey)'">
-      💬 Görüş, Dilek & Şikayet
+    <a href="/gorus"
+       style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:var(--r-lg);font-size:13px;font-weight:600;text-decoration:none;transition:all .15s;
+              {% if gorus_buton_renk %}background:{{ gorus_buton_renk }};color:#fff;border:none;{% else %}border:1.5px solid var(--kenar);background:var(--yuzey);color:var(--metin-ik);{% endif %}">
+      {{ gorus_buton_metin }}
     </a>
   </div>
+  {% endif %}
 </div>
 {% endblock %}
